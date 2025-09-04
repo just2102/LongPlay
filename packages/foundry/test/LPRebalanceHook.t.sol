@@ -4,8 +4,6 @@ pragma solidity ^0.8.26;
 import {Test, console} from "forge-std/Test.sol";
 import {LPRebalanceHook} from "../src/LPRebalanceHook.sol";
 import {UserConfig} from "../src/libraries/Config.sol";
-import {LPSubscriber} from "../src/LPSubscriber.sol";
-import {SignatureLibrary} from "../src/libraries/Signature.sol";
 import {IRangeExitServiceManager} from "../src/interfaces/IRangeExitServiceManager.sol";
 
 import {MockERC20} from "solmate/src/test/utils/mocks/MockERC20.sol";
@@ -37,7 +35,6 @@ import {MockV4Router} from "v4-periphery/test/mocks/MockV4Router.sol";
 contract LPRebalanceHookTest is Test, Deployers {
     LPRebalanceHook public hook;
     MockV4Router public mockRouter;
-    ISubscriber public lpSubscriber;
 
     using StateLibrary for IPoolManager;
 
@@ -66,10 +63,9 @@ contract LPRebalanceHookTest is Test, Deployers {
         mockRouter = new MockV4Router(manager);
 
         deployHook();
-        hook.setService(SERVICE);
+        // hook.setService(SERVICE);
 
         deployTokens();
-        deployLPSubscriberAndSubscribe();
         // Approve Permit2 and then sub-approve POSM as spender via Permit2
         MockERC20(Currency.unwrap(token0)).approve(PERMIT2, type(uint256).max);
         MockERC20(Currency.unwrap(token1)).approve(PERMIT2, type(uint256).max);
@@ -115,18 +111,10 @@ contract LPRebalanceHookTest is Test, Deployers {
             abi.encodePacked(uint8(Actions.MINT_POSITION), uint8(Actions.CLOSE_CURRENCY), uint8(Actions.CLOSE_CURRENCY));
         bytes[] memory params = new bytes[](3);
 
-        // sign offchain, pass into userConfig
-        bytes memory signature = _getSignature();
-
         int24 tickLower = -60;
         int24 tickUpper = -30;
-        UserConfig memory config = UserConfig({
-            tickThreshold: -60,
-            owner: USER,
-            positionId: positionId,
-            posM: address(posM),
-            signature: signature
-        });
+        UserConfig memory config =
+            UserConfig({tickThreshold: -60, owner: USER, positionId: positionId, posM: address(posM)});
 
         bytes memory hookData = abi.encode(config);
         params[0] = abi.encode(
@@ -172,12 +160,6 @@ contract LPRebalanceHookTest is Test, Deployers {
         vm.stopPrank();
     }
 
-    function _getSignature() internal pure returns (bytes memory) {
-        bytes memory sig =
-            hex"09252ebc97618d8a36495fe93bb83df193a9ee0d97890fe0af1833739128d3e41f18ee97de7b12f3641326afda58f12490ed3d30cb91f268d842fc8f587f4ce61b";
-        return sig;
-    }
-
     function getCurrentTick() internal view returns (int24) {
         (, int24 currentTick,,) = manager.getSlot0(key.toId());
         return currentTick;
@@ -213,10 +195,6 @@ contract LPRebalanceHookTest is Test, Deployers {
         deployCodeTo("LPRebalanceHook.sol", abi.encode(manager, owner), address(flags));
 
         hook = LPRebalanceHook(address(flags));
-    }
-
-    function deployLPSubscriberAndSubscribe() internal {
-        lpSubscriber = new LPSubscriber(posM);
     }
 
     function deployPool() internal {

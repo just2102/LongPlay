@@ -6,7 +6,6 @@ struct UserConfig {
     address owner;
     uint256 positionId;
     address posM;
-    bytes signature;
 }
 
 uint8 constant MAX_REBALANCES_NUM = 1;

@@ -3,8 +3,6 @@ pragma solidity ^0.8.26;
 
 import {UserConfig} from "./libraries/Config.sol";
 import {IRangeExitServiceManager} from "./interfaces/IRangeExitServiceManager.sol";
-import {SignatureLibrary} from "./libraries/Signature.sol";
-
 import {BaseHook} from "v4-periphery/src/utils/BaseHook.sol";
 import {ERC721Permit_v4} from "v4-periphery/src/base/ERC721Permit_v4.sol";
 import {IPositionManager} from "v4-periphery/src/interfaces/IPositionManager.sol";
@@ -29,13 +27,11 @@ import {Test, console} from "forge-std/Test.sol";
 contract LPRebalanceHook is BaseHook, ReentrancyGuard, Ownable {
     using StateLibrary for IPoolManager;
 
-    error InvalidSignature();
     error OwnerDoesNotOwnThePosition();
     error PositionAlreadyWithdrawn();
 
     mapping(int24 tickThreshold => uint256[] positionIds) public positions;
     mapping(uint256 positionId => bool) public isWithdrawn;
-    mapping(PoolId poolId => mapping(uint256 positionId => bool)) public exitRequested;
     mapping(uint256 positionId => UserConfig config) public userConfigs;
 
     mapping(PoolId poolId => int24 lastTick) public lastTicks;
@@ -77,6 +73,9 @@ contract LPRebalanceHook is BaseHook, ReentrancyGuard, Ownable {
         return this.afterInitialize.selector;
     }
 
+    // todo: replace this function with an AVS contract call
+    // that will take the required params (e.g., config, positionId)
+    // and remember the position for future management
     function _afterAddLiquidity(
         address sender,
         PoolKey calldata key,
@@ -92,7 +91,6 @@ contract LPRebalanceHook is BaseHook, ReentrancyGuard, Ownable {
         }
 
         UserConfig memory userConfig;
-        // todo: add check for hookData.length (it should be fixed size)
         if (hookData.length > 0) {
             (userConfig) = abi.decode(hookData, (UserConfig));
 
@@ -100,11 +98,6 @@ contract LPRebalanceHook is BaseHook, ReentrancyGuard, Ownable {
             address owner = ERC721Permit_v4(userConfig.posM).ownerOf(userConfig.positionId);
             if (owner != userConfig.owner) {
                 revert OwnerDoesNotOwnThePosition();
-            }
-            // todo: use secure message and nonce values
-            bool isVerified = SignatureLibrary.verify(owner, owner, 0 ether, "testDemo", 1, userConfig.signature);
-            if (!isVerified) {
-                revert InvalidSignature();
             }
         }
 
@@ -142,19 +135,13 @@ contract LPRebalanceHook is BaseHook, ReentrancyGuard, Ownable {
                 bytes32 taskHash = service.createNewTask(poolKeyCustom, lastTick, deadline);
                 console.log("Task successfully sent to service. TaskHash:");
                 console.logBytes32(taskHash);
-                // operator flow:
-                // 1. listen to WithdrawNeeded event.
-                // 2. get lastTick from the event.
-                // 3. call hook.withdrawLiquidity(key, posManagerAddress, lastTick)
-                // 4. check the liquidity was withdrawn successfully
-                // 5. signal success
-                // 6. deposit the withdrawn asset to Aave.
             }
         }
 
         return (this.afterSwap.selector, 0);
     }
 
+    // todo: move this function to the AVS contract
     function withdrawLiquidity(PoolKey calldata key, address posManagerAddress, int24 lastTick) external nonReentrant {
         IPositionManager posM = IPositionManager(posManagerAddress);
         bytes memory actions = abi.encodePacked(uint8(Actions.BURN_POSITION), uint8(Actions.TAKE_PAIR));
@@ -163,9 +150,7 @@ contract LPRebalanceHook is BaseHook, ReentrancyGuard, Ownable {
 
         (, int24 currentTick,,) = poolManager.getSlot0(key.toId());
         int24 currentTickToUse = getLowerUsableTick(currentTick, key.tickSpacing);
-        console.log("Current tick: ", currentTick);
-        console.log("Current tick to use: ", currentTickToUse);
-        console.log("Last tick: ", lastTick);
+        // todo: to avoid onchain iterations store data in an AVS database
         while (currentTickToUse < lastTick) {
             uint256[] memory positionIds = positions[currentTickToUse];
             Currency currency0 = key.currency0;
@@ -200,6 +185,7 @@ contract LPRebalanceHook is BaseHook, ReentrancyGuard, Ownable {
         }
     }
 
+    // todo: approve to AVS contract
     function approveLpTokens(address positionManager, uint256 tokenId) external {
         ERC721Permit_v4(positionManager).approve(address(this), tokenId);
     }
@@ -224,8 +210,4 @@ contract LPRebalanceHook is BaseHook, ReentrancyGuard, Ownable {
             }
         }
     }
-
-    // function exitFulfilled(PoolId poolId, bytes32 positionId) external onlyService {
-    //     exitRequested[poolId][positionId] = false;
-    // }
 }
