@@ -1,24 +1,28 @@
+import { Providers } from "./providers";
 import "@rainbow-me/rainbowkit/styles.css";
-import { ScaffoldEthAppWithProviders } from "~~/components/ScaffoldEthAppWithProviders";
-import { ThemeProvider } from "~~/components/ThemeProvider";
+import { Footer } from "~~/components/Footer";
 import "~~/styles/globals.css";
 import { getMetadata } from "~~/utils/scaffold-eth/getMetadata";
 
 export const metadata = getMetadata({
-  title: "Scaffold-ETH 2 App",
-  description: "Built with 🏗 Scaffold-ETH 2",
+  title: "LongPlay",
+  description: "LongPlay — Automated Liquidity Farming",
 });
 
-const ScaffoldEthApp = ({ children }: { children: React.ReactNode }) => {
+const App = ({ children }: { children: React.ReactNode }) => {
   return (
     <html suppressHydrationWarning className={``}>
       <body>
-        <ThemeProvider enableSystem>
-          <ScaffoldEthAppWithProviders>{children}</ScaffoldEthAppWithProviders>
-        </ThemeProvider>
+        <Providers>
+          <>
+            {children}
+
+            <Footer />
+          </>
+        </Providers>
       </body>
     </html>
   );
 };
 
-export default ScaffoldEthApp;
+export default App;
