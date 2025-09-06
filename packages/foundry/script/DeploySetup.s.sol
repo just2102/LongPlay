@@ -19,6 +19,9 @@ import {LPRebalanceHook} from "../src/LPRebalanceHook.sol";
 
 import {MockERC20} from "solmate/src/test/utils/mocks/MockERC20.sol";
 
+import {MockV4Router} from "v4-periphery/test/mocks/MockV4Router.sol";
+import {IV4Router} from "v4-periphery/src/interfaces/IV4Router.sol";
+
 import "forge-std/console.sol";
 
 contract DeploySetup is Script {
@@ -66,17 +69,49 @@ contract DeploySetup is Script {
         // Add liquidity using PositionManager multicall-style actions
         addPoolLiquidity();
 
+        // moveTickLowerByTokenAmount(0.02 ether);
+
         vm.stopBroadcast();
 
         // Log outputs
+        int24 lastTick = hook.lastTicks(key.toId());
+        console2.log("Last tick after hook deployment:", lastTick);
+
         PoolId poolId = key.toId();
         console2.log("Hook:", address(hook));
         console2.log("TokenA:", address(tokenA));
         console2.log("TokenB:", address(tokenB));
         console2.log("Currency0:", Currency.unwrap(key.currency0));
         console2.log("Currency1:", Currency.unwrap(key.currency1));
+        console2.log("Pool Id:");
         console2.logBytes32(PoolId.unwrap(poolId));
         writeDeploymentFile();
+    }
+
+    function moveTickLowerByTokenAmount(uint128 amountIn) internal {
+        // moving tick lower by selling some token0
+        MockV4Router mockRouter = new MockV4Router(IPoolManager(poolManagerAddr));
+        MockERC20(Currency.unwrap(key.currency0)).approve(address(mockRouter), amountIn);
+        MockERC20(Currency.unwrap(key.currency1)).approve(address(mockRouter), amountIn);
+
+        bytes memory actions =
+            abi.encodePacked(uint8(Actions.SWAP_EXACT_IN_SINGLE), uint8(Actions.SETTLE_ALL), uint8(Actions.TAKE_ALL));
+
+        uint128 amountOutMinimum = 0;
+        bytes[] memory params = new bytes[](3);
+        params[0] = abi.encode(
+            IV4Router.ExactInputSingleParams({
+                poolKey: key,
+                zeroForOne: true,
+                amountIn: amountIn,
+                amountOutMinimum: amountOutMinimum,
+                hookData: bytes("")
+            })
+        );
+        params[1] = abi.encode(key.currency0, amountIn);
+        params[2] = abi.encode(key.currency1, amountOutMinimum);
+
+        mockRouter.executeActions(abi.encode(actions, params));
     }
 
     function writeDeploymentFile() internal {
