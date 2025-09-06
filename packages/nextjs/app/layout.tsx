@@ -1,6 +1,7 @@
 import { Providers } from "./providers";
 import "@rainbow-me/rainbowkit/styles.css";
 import { Footer } from "~~/components/Footer";
+import { Header } from "~~/components/Header";
 import "~~/styles/globals.css";
 import { getMetadata } from "~~/utils/scaffold-eth/getMetadata";
 
@@ -15,6 +16,8 @@ const App = ({ children }: { children: React.ReactNode }) => {
       <body>
         <Providers>
           <>
+            <Header />
+
             {children}
 
             <Footer />
