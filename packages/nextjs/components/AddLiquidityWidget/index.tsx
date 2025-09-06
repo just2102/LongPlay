@@ -1,92 +1,64 @@
-import { useEffect, useMemo, useState } from "react";
+import { useState } from "react";
+import { CurrencyInput } from "./components/CurrencyInput";
+import { Settings } from "./components/Settings";
+import { ShowSettingsButton } from "./components/ShowSettingsButton";
+import { Percent } from "@uniswap/sdk-core";
+import { MintOptions } from "@uniswap/v4-sdk";
+import { useAccount } from "wagmi";
+import { getBlock } from "wagmi/actions";
+import { useMintAmountPreview } from "~~/hooks/useMintAmountPreview";
 import { useMintPosition } from "~~/hooks/useMintPosition";
-
-const BIG_READABLE = 1e12;
-const nearlyEqual = (a: number, b: number, eps = 1e-9) =>
-  Math.abs(a - b) <= eps * Math.max(1, Math.abs(a), Math.abs(b));
+import { wagmiConfig } from "~~/services/web3/wagmiConfig";
 
 export const AddLiquidityWidget = () => {
-  const { getMintPreview, pool, isLoading, isToken0A } = useMintPosition();
+  const {
+    pool,
+    isLoading,
+    fullRange,
+    setFullRange,
+    lowerTickTarget,
+    setLowerTickTarget,
+    upperTickTarget,
+    setUpperTickTarget,
+    amountAReadable,
+    setAmountAReadable,
+    amountBReadable,
+    setAmountBReadable,
+    setLastEdited,
+    slippageTolerance,
+    setSlippageTolerance,
+  } = useMintAmountPreview();
+  const { mintAction, getMintPreview, isToken0A, isSendingTx } = useMintPosition();
 
-  const [fullRange, setFullRange] = useState(true);
-  const [lowerTickTarget, setLowerTickTarget] = useState(0);
-  const [upperTickTarget, setUpperTickTarget] = useState(0);
+  const { address } = useAccount();
 
-  const [amountAReadable, setAmountAReadable] = useState(1);
-  const [amountBReadable, setAmountBReadable] = useState(1);
-
-  const [lastEdited, setLastEdited] = useState<"A" | "B" | null>(null);
-
-  const token0IsA = useMemo(() => Boolean(isToken0A), [isToken0A]);
-
-  useEffect(() => {
-    if (!pool || !getMintPreview) return;
-
-    const pickActuals = (p: NonNullable<ReturnType<typeof getMintPreview>>) => {
-      const actualA = token0IsA ? Number(p.amount0Actual) : Number(p.amount1Actual);
-      const actualB = token0IsA ? Number(p.amount1Actual) : Number(p.amount0Actual);
-      return { actualA, actualB };
-    };
-
-    let preview = null;
-
-    if (lastEdited === "A") {
-      // Keep A as typed; compute B required for new ticks
-      preview = getMintPreview({
-        fullRange,
-        lowerTickTarget,
-        upperTickTarget,
-        amountAReadable,
-        amountBReadable: BIG_READABLE,
-        token0IsA,
-      });
-      if (preview) {
-        const { actualB } = pickActuals(preview);
-        if (!nearlyEqual(actualB, amountBReadable)) setAmountBReadable(actualB);
-      }
-    } else if (lastEdited === "B") {
-      // Keep B as typed; compute A required for new ticks
-      preview = getMintPreview({
-        fullRange,
-        lowerTickTarget,
-        upperTickTarget,
-        amountAReadable: BIG_READABLE,
-        amountBReadable,
-        token0IsA,
-      });
-      if (preview) {
-        const { actualA } = pickActuals(preview);
-        if (!nearlyEqual(actualA, amountAReadable)) setAmountAReadable(actualA);
-      }
-    } else {
-      // No anchor yet: recompute both from the current pair
-      preview = getMintPreview({
-        fullRange,
-        lowerTickTarget,
-        upperTickTarget,
-        amountAReadable,
-        amountBReadable,
-        token0IsA,
-      });
-      if (preview) {
-        const { actualA, actualB } = pickActuals(preview);
-        if (!nearlyEqual(actualA, amountAReadable)) setAmountAReadable(actualA);
-        if (!nearlyEqual(actualB, amountBReadable)) setAmountBReadable(actualB);
-      }
-    }
-  }, [pool, getMintPreview, token0IsA, fullRange, lowerTickTarget, upperTickTarget]);
+  const [showSettings, setShowSettings] = useState(false);
 
   return (
     <div className="flex flex-col gap-4">
-      <h1 className="text-xl font-bold">Add Liquidity</h1>
+      <div className="flex items-center gap-3 pt-4">
+        <h1 className="text-xl font-bold">Add Liquidity</h1>
+      </div>
+
       {isLoading && <div>Loading pool...</div>}
       {!pool && !isLoading && <div>Pool not available yet.</div>}
 
-      <form className="flex flex-col gap-3 max-w-sm">
-        <label className="flex items-center gap-2">
-          <input type="checkbox" checked={fullRange} onChange={e => setFullRange(e.target.checked)} />
-          Full range
-        </label>
+      <div className="text-sm space-y-1">
+        <h3>Current tick: {pool?.tickCurrent}</h3>
+        {pool && <p>Tick spacing: {pool.tickSpacing}</p>}
+      </div>
+
+      <form className="flex flex-col gap-3 max-w-sm border border-gray-200 rounded-xl p-4">
+        <div className="flex justify-between">
+          <label className="flex items-center gap-2">
+            <input type="checkbox" checked={fullRange} onChange={e => setFullRange(e.target.checked)} />
+            Full range
+          </label>
+
+          <ShowSettingsButton showSettings={showSettings} setShowSettings={setShowSettings} />
+        </div>
+
+        {showSettings && <Settings slippageTolerance={slippageTolerance} setSlippageTolerance={setSlippageTolerance} />}
 
         {!fullRange && (
           <div className="grid grid-cols-2 gap-2">
@@ -96,7 +68,9 @@ export const AddLiquidityWidget = () => {
                 type="number"
                 value={lowerTickTarget}
                 onChange={e => setLowerTickTarget(Number(e.target.value))}
+                step={pool?.tickSpacing || 1}
                 className="input input-bordered"
+                placeholder={`Multiple of ${pool?.tickSpacing || "tick spacing"}`}
               />
             </label>
             <label className="flex flex-col">
@@ -105,43 +79,73 @@ export const AddLiquidityWidget = () => {
                 type="number"
                 value={upperTickTarget}
                 onChange={e => setUpperTickTarget(Number(e.target.value))}
+                step={pool?.tickSpacing || 1}
                 className="input input-bordered"
+                placeholder={`Multiple of ${pool?.tickSpacing || "tick spacing"}`}
               />
             </label>
           </div>
         )}
 
         <div className="grid grid-cols-2 gap-2">
-          <label className="flex flex-col">
-            <span className="text-sm opacity-70">Amount A</span>
-            <input
-              type="number"
-              min={0}
-              step={0.000001}
-              value={amountAReadable}
-              onChange={e => {
-                setAmountAReadable(Number(e.target.value));
-                setLastEdited("A");
-              }}
-              className="input input-bordered"
-            />
-          </label>
+          <CurrencyInput
+            amountReadable={amountAReadable}
+            setAmountReadable={setAmountAReadable}
+            setLastEdited={() => setLastEdited("A")}
+            currency={pool?.currency0}
+            label="A"
+          />
 
-          <label className="flex flex-col">
-            <span className="text-sm opacity-70">Amount B</span>
-            <input
-              type="number"
-              min={0}
-              step={0.000001}
-              value={amountBReadable}
-              onChange={e => {
-                setAmountBReadable(Number(e.target.value));
-                setLastEdited("B");
-              }}
-              className="input input-bordered"
-            />
-          </label>
+          <CurrencyInput
+            amountReadable={amountBReadable}
+            setAmountReadable={setAmountBReadable}
+            setLastEdited={() => setLastEdited("B")}
+            currency={pool?.currency1}
+            label="B"
+          />
         </div>
+
+        <button
+          type="button"
+          onClick={async () => {
+            if (!address) {
+              return;
+            }
+
+            const position = getMintPreview({
+              fullRange,
+              lowerTickTarget,
+              upperTickTarget,
+              amountAReadable,
+              amountBReadable,
+              token0IsA: Boolean(isToken0A),
+            });
+
+            if (!position) {
+              return;
+            }
+
+            const slippagePct = new Percent(Math.floor(slippageTolerance * 100), 10_000);
+            const deadlineSeconds = 120 * 60;
+            const currentBlock = await getBlock(wagmiConfig);
+            const deadline = Number(currentBlock.timestamp) + deadlineSeconds;
+
+            const mintOptions: MintOptions = {
+              recipient: address,
+              slippageTolerance: slippagePct,
+              deadline: deadline,
+            };
+
+            mintAction({
+              position,
+              mintOptions,
+            });
+          }}
+          className="btn btn-primary"
+          disabled={isSendingTx}
+        >
+          Add Liquidity
+        </button>
       </form>
     </div>
   );

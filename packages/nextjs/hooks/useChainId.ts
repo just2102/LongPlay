@@ -1,7 +1,8 @@
-import { useAccount } from "wagmi";
+// import { useAccount } from "wagmi";
 import { contractsData } from "~~/utils/scaffold-eth/contract";
 
 export const useChainId = () => {
-  const { chainId } = useAccount();
-  return (chainId ?? 1) as keyof typeof contractsData;
+  return 31337 as keyof typeof contractsData;
+  // const { chainId } = useAccount();
+  // return (chainId ?? 31337) as keyof typeof contractsData;
 };

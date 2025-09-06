@@ -1,11 +1,29 @@
+import { useState } from "react";
 import { useChainId } from "./useChainId";
 import { usePoolData } from "./usePoolData";
 import { Token } from "@uniswap/sdk-core";
 import { nearestUsableTick } from "@uniswap/v3-sdk";
-import { Pool } from "@uniswap/v4-sdk";
+import { MintOptions, Pool, V4PositionManager } from "@uniswap/v4-sdk";
 import { Position } from "@uniswap/v4-sdk";
+import { useAccount, useWriteContract } from "wagmi";
+import { readContract, signTypedData, waitForTransactionReceipt } from "wagmi/actions";
 import { MOCK_CURRENCY0, MOCK_CURRENCY1, MOCK_FEE, MOCK_TICK_SPACING } from "~~/contracts/deployedContracts";
+import { wagmiConfig } from "~~/services/web3/wagmiConfig";
 import { getContractsData } from "~~/utils/scaffold-eth/contract";
+
+const PERMIT2_TYPES = {
+  PermitBatch: [
+    { name: "details", type: "PermitDetails[]" },
+    { name: "spender", type: "address" },
+    { name: "sigDeadline", type: "uint256" },
+  ],
+  PermitDetails: [
+    { name: "token", type: "address" },
+    { name: "amount", type: "uint160" },
+    { name: "expiration", type: "uint48" },
+    { name: "nonce", type: "uint48" },
+  ],
+};
 
 export const token0IsA = (tokenA: Token, pool: Pool) => {
   if (!pool.token0) {
@@ -21,6 +39,10 @@ export const token0IsA = (tokenA: Token, pool: Pool) => {
 
 export const useMintPosition = () => {
   const chainId = useChainId();
+  const { address } = useAccount();
+  const { writeContractAsync } = useWriteContract();
+
+  const [isSendingTx, setIsSendingTx] = useState(false);
 
   const token0 = new Token(chainId, MOCK_CURRENCY0, 18);
   const token1 = new Token(chainId, MOCK_CURRENCY1, 18);
@@ -58,8 +80,8 @@ export const useMintPosition = () => {
     amountAReadable: number;
     amountBReadable: number;
     token0IsA: boolean;
-  }) => {
-    if (!pool) return null;
+  }): Position | null => {
+    if (!pool || isNaN(amountAReadable) || isNaN(amountBReadable)) return null;
 
     const poolTickSpacing = pool.tickSpacing;
 
@@ -99,15 +121,7 @@ export const useMintPosition = () => {
 
     // Avoid constructing positions with both amounts at zero
     if (amount0Desired === "0" && amount1Desired === "0") {
-      return {
-        tickLower,
-        tickUpper,
-        amount0Desired,
-        amount1Desired,
-        amount0Actual: "0",
-        amount1Actual: "0",
-        liquidity: "0",
-      };
+      return null;
     }
 
     const position = Position.fromAmounts({
@@ -119,15 +133,110 @@ export const useMintPosition = () => {
       useFullPrecision: true,
     });
 
-    return {
-      tickLower,
-      tickUpper,
-      amount0Desired,
-      amount1Desired,
-      amount0Actual: position.amount0.toExact(),
-      amount1Actual: position.amount1.toExact(),
-      liquidity: position.liquidity.toString(),
-    };
+    return position;
+  };
+
+  const mintAction = async ({ position, mintOptions }: { position: Position; mintOptions: MintOptions }) => {
+    if (!address) {
+      throw new Error("Address not found");
+    }
+
+    // permit2
+    const usePermit2 = true;
+
+    if (usePermit2) {
+      // Generate Permit2 data only for ERC20 tokens (not needed for native ETH)
+      const permitDetails = [];
+
+      if (!token0.isNative) {
+        const [, , nonce] = (await readContract(wagmiConfig, {
+          account: address,
+          address: getContractsData(chainId).Permit2.address,
+          abi: getContractsData(chainId).Permit2.abi,
+          functionName: "allowance",
+          args: [address, token0.address, getContractsData(chainId).PositionManager.address],
+        })) as [bigint, number, number];
+
+        permitDetails.push({
+          token: token0.address,
+          amount: (2n ** 160n - 1n).toString(), // Max uint160
+          expiration: mintOptions.deadline.toString(),
+          nonce: nonce.toString(),
+        });
+      }
+
+      if (!token1.isNative) {
+        const [, , nonce] = (await readContract(wagmiConfig, {
+          account: address,
+          address: getContractsData(chainId).Permit2.address,
+          abi: getContractsData(chainId).Permit2.abi,
+          functionName: "allowance",
+          args: [address, token1.address, getContractsData(chainId).PositionManager.address],
+        })) as [bigint, number, number];
+
+        permitDetails.push({
+          token: token1.address,
+          amount: (2n ** 160n - 1n).toString(), // Max uint160
+          expiration: mintOptions.deadline.toString(),
+          nonce: nonce.toString(),
+        });
+      }
+
+      if (permitDetails.length > 0) {
+        const permitData = {
+          details: permitDetails,
+          spender: getContractsData(chainId).PositionManager.address,
+          sigDeadline: mintOptions.deadline.toString(),
+        };
+
+        const signature = await signTypedData(wagmiConfig, {
+          account: address,
+          domain: {
+            name: "Permit2",
+            chainId,
+            verifyingContract: getContractsData(chainId).Permit2.address,
+          },
+          types: PERMIT2_TYPES,
+          primaryType: "PermitBatch",
+          message: permitData,
+        });
+
+        // Add the permit data and signature to our mint options
+        mintOptions.batchPermit = {
+          owner: address,
+          permitBatch: permitData,
+          signature,
+        };
+      }
+    }
+
+    const { calldata, value } = V4PositionManager.addCallParameters(position, mintOptions);
+    console.log("Calldata:", calldata);
+    console.log("Value:", value);
+
+    setIsSendingTx(true);
+
+    try {
+      const hash = await writeContractAsync({
+        address: getContractsData(chainId).PositionManager.address,
+        abi: getContractsData(chainId).PositionManager.abi,
+        functionName: "multicall",
+        args: [[calldata]],
+        value: BigInt(value),
+      });
+      console.log("Hash:", hash);
+
+      const receipt = await waitForTransactionReceipt(wagmiConfig, {
+        hash,
+      });
+      console.log("Receipt:", receipt);
+
+      return receipt;
+    } catch (error) {
+      console.error("Error minting position:", error);
+    } finally {
+      setIsSendingTx(false);
+    }
   };
 
   return {
@@ -135,5 +244,7 @@ export const useMintPosition = () => {
     isLoading,
     getMintPreview,
     isToken0A: pool ? token0IsA(token0, pool) : null,
+    mintAction,
+    isSendingTx,
   };
 };

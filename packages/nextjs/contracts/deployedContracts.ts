@@ -13,7 +13,7 @@ export const MOCK_FEE = FeeAmount.MEDIUM;
 export const MOCK_TICK_SPACING = 30;
 
 const deployedContracts = {
-  1: {
+  31337: {
     LPRebalanceHook: {
       address: "0xB34e52bDd362015B06E98df77538a22730245440",
       abi: hookAbi,
