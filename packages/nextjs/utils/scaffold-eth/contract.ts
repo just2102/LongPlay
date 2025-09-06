@@ -61,7 +61,16 @@ const deepMergeContracts = <L extends Record<PropertyKey, any>, E extends Record
   return result as MergeDeepRecord<AddExternalFlag<L>, AddExternalFlag<E>, { arrayMergeMode: "replace" }>;
 };
 
-const contractsData = deepMergeContracts(deployedContractsData, externalContractsData);
+export const contractsData = deepMergeContracts(deployedContractsData, externalContractsData);
+
+export const getContractsData = (chainId: number): (typeof contractsData)[keyof typeof contractsData] => {
+  const data = contractsData[chainId as keyof typeof contractsData];
+
+  if (!data) {
+    return contractsData[1];
+  }
+  return data;
+};
 
 export type InheritedFunctions = { readonly [key: string]: string };
 
@@ -79,7 +88,7 @@ export type GenericContractsDeclaration = {
   };
 };
 
-export const contracts = contractsData as GenericContractsDeclaration | null;
+export const contracts = contractsData as GenericContractsDeclaration;
 
 type ConfiguredChainId = (typeof scaffoldConfig)["targetNetworks"][0]["id"];
 
