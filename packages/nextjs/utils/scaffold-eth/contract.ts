@@ -67,7 +67,7 @@ export const getContractsData = (chainId: number): (typeof contractsData)[keyof 
   const data = contractsData[chainId as keyof typeof contractsData];
 
   if (!data) {
-    return contractsData[1];
+    return contractsData[31337];
   }
   return data;
 };
