@@ -5,10 +5,12 @@ import { Token } from "@uniswap/sdk-core";
 import { nearestUsableTick } from "@uniswap/v3-sdk";
 import { MintOptions, Pool, V4PositionManager } from "@uniswap/v4-sdk";
 import { Position } from "@uniswap/v4-sdk";
+import { decodeEventLog } from "viem";
 import { useAccount, useWriteContract } from "wagmi";
 import { readContract, signTypedData, waitForTransactionReceipt } from "wagmi/actions";
 import { MOCK_CURRENCY0, MOCK_CURRENCY1, MOCK_FEE, MOCK_TICK_SPACING } from "~~/contracts/deployedContracts";
 import { wagmiConfig } from "~~/services/web3/wagmiConfig";
+import { storePosition } from "~~/utils/localStorage";
 import { getContractsData } from "~~/utils/scaffold-eth/contract";
 
 const PERMIT2_TYPES = {
@@ -140,6 +142,9 @@ export const useMintPosition = () => {
     if (!address) {
       throw new Error("Address not found");
     }
+    if (!pool) {
+      throw new Error("Pool not found");
+    }
 
     // permit2
     const usePermit2 = true;
@@ -231,6 +236,20 @@ export const useMintPosition = () => {
       });
       console.log("Receipt:", receipt);
 
+      const ml = receipt.logs[1];
+      const { args: args2 } = decodeEventLog({
+        abi: [modifyLiquidity],
+        data: ml.data,
+        topics: ml.topics,
+      });
+
+      storePosition(pool.poolId, {
+        tokenId: Number(BigInt(args2.salt)),
+        tickLower: args2.tickLower,
+        tickUpper: args2.tickUpper,
+        isManaged: false,
+      });
+
       return receipt;
     } catch (error) {
       console.error("Error minting position:", error);
@@ -248,3 +267,16 @@ export const useMintPosition = () => {
     isSendingTx,
   };
 };
+
+const modifyLiquidity = {
+  type: "event",
+  name: "ModifyLiquidity",
+  inputs: [
+    { indexed: true, name: "id", type: "bytes32" },
+    { indexed: true, name: "sender", type: "address" },
+    { indexed: false, name: "tickLower", type: "int24" },
+    { indexed: false, name: "tickUpper", type: "int24" },
+    { indexed: false, name: "liquidityDelta", type: "int256" },
+    { indexed: false, name: "salt", type: "bytes32" },
+  ],
+} as const;

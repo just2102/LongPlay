@@ -9,7 +9,9 @@ export const ShowSettingsButton = ({
     <button
       type="button"
       onClick={() => setShowSettings(!showSettings)}
-      className="p-2 hover:bg-gray-600 rounded-lg transition-colors cursor-pointer"
+      className="p-2 dark:bg-gray-950 bg-gray-100  rounded-lg transition-colors cursor-pointer
+      dark:hover:bg-gray-600 hover:bg-gray-200
+      "
       title="Settings"
     >
       <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">

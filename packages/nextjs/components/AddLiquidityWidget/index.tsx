@@ -1,7 +1,9 @@
 import { useState } from "react";
+import { Button } from "../Button";
 import { CurrencyInput } from "./components/CurrencyInput";
 import { Settings } from "./components/Settings";
 import { ShowSettingsButton } from "./components/ShowSettingsButton";
+import { TickInput } from "./components/TickInput";
 import { Percent } from "@uniswap/sdk-core";
 import { MintOptions } from "@uniswap/v4-sdk";
 import { useAccount } from "wagmi";
@@ -35,7 +37,7 @@ export const AddLiquidityWidget = () => {
   const [showSettings, setShowSettings] = useState(false);
 
   return (
-    <div className="flex flex-col gap-4">
+    <div className="flex flex-col gap-4 ">
       <div className="flex items-center gap-3 pt-4">
         <h1 className="text-xl font-bold">Add Liquidity</h1>
       </div>
@@ -48,9 +50,17 @@ export const AddLiquidityWidget = () => {
         {pool && <p>Tick spacing: {pool.tickSpacing}</p>}
       </div>
 
-      <form className="flex flex-col gap-3 max-w-sm border border-gray-200 rounded-xl p-4">
+      <form
+        className="flex flex-col gap-3 max-w-sm border rounded-xl p-4
+      bg-white border-gray-200 shadow-sm hover:shadow-md transition-all duration-200 hover:border-gray-300
+      "
+      >
         <div className="flex justify-between">
-          <label className="flex items-center gap-2">
+          <label
+            className="flex items-center gap-2
+          text-gray-700
+          "
+          >
             <input type="checkbox" checked={fullRange} onChange={e => setFullRange(e.target.checked)} />
             Full range
           </label>
@@ -62,28 +72,8 @@ export const AddLiquidityWidget = () => {
 
         {!fullRange && (
           <div className="grid grid-cols-2 gap-2">
-            <label className="flex flex-col">
-              <span className="text-sm opacity-70">Lower tick</span>
-              <input
-                type="number"
-                value={lowerTickTarget}
-                onChange={e => setLowerTickTarget(Number(e.target.value))}
-                step={pool?.tickSpacing || 1}
-                className="input input-bordered"
-                placeholder={`Multiple of ${pool?.tickSpacing || "tick spacing"}`}
-              />
-            </label>
-            <label className="flex flex-col">
-              <span className="text-sm opacity-70">Upper tick</span>
-              <input
-                type="number"
-                value={upperTickTarget}
-                onChange={e => setUpperTickTarget(Number(e.target.value))}
-                step={pool?.tickSpacing || 1}
-                className="input input-bordered"
-                placeholder={`Multiple of ${pool?.tickSpacing || "tick spacing"}`}
-              />
-            </label>
+            <TickInput tickTarget={lowerTickTarget} setTickTarget={setLowerTickTarget} pool={pool} label="Lower tick" />
+            <TickInput tickTarget={upperTickTarget} setTickTarget={setUpperTickTarget} pool={pool} label="Upper tick" />
           </div>
         )}
 
@@ -105,8 +95,7 @@ export const AddLiquidityWidget = () => {
           />
         </div>
 
-        <button
-          type="button"
+        <Button
           onClick={async () => {
             if (!address) {
               return;
@@ -141,11 +130,11 @@ export const AddLiquidityWidget = () => {
               mintOptions,
             });
           }}
-          className="btn btn-primary"
           disabled={isSendingTx}
+          className="w-full"
         >
           Add Liquidity
-        </button>
+        </Button>
       </form>
     </div>
   );

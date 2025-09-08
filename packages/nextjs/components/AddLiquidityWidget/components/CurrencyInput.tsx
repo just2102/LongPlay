@@ -26,6 +26,7 @@ export const CurrencyInput = ({
     args: [address!],
     query: {
       enabled: !!address && !!currencyAddress,
+      refetchInterval: 7_000,
     },
   });
 
@@ -33,7 +34,7 @@ export const CurrencyInput = ({
 
   return (
     <label className="flex flex-col">
-      <span className="text-sm opacity-70">Amount {label}</span>
+      <span className="text-sm opacity-70 text-gray-700">Amount {label}</span>
       <input
         type="number"
         min={0}
@@ -43,11 +44,11 @@ export const CurrencyInput = ({
           setAmountReadable(Number(e.target.value));
           setLastEdited("A");
         }}
-        className="input input-bordered"
+        className="input input-bordered bg-gray-950 text-white"
       />
 
       {tokenBalance && (
-        <span className="text-sm opacity-70 flex justify-between">
+        <span className="text-sm opacity-70 flex justify-between text-gray-700">
           Balance: {Number(formatUnits(tokenBalance, decimals)).toFixed(6)}
         </span>
       )}
