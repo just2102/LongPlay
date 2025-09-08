@@ -1,11 +1,4 @@
-## Running tests:
-
-1. Fork mainnet with the 31337 chain id to simplify frontend testing:
-   `anvil --fork-chain-id 31337 --fork-block-number 23302617 --fork-url {MAINNET_RPC_URL}`
-2. Run tests:
-   `cd packages/foundry && forge test --rpc-url localhost:8545`
-
-### Running tests with the frontend
+## Deploying and running tests with the frontend
 
 1. Fork mainnet (`anvil --fork-chain-id 31337 --fork-block-number 23302617 --fork-url {MAINNET_RPC_URL} `)
 2. Run `cd packages/foundry && forge script script/DeploySetup.s.sol --rpc-url localhost:8545 --broadcast --private-key {$USER_PK}`
@@ -19,7 +12,10 @@
 ### Additional scripts:
 
 - Deploy hook:
-  `forge script packages/foundry/script/Deploy.s.sol --rpc-url localhost:8545 --broadcast --private-key {$USER_PK}`
+  `cd packages/foundry && forge script script/Deploy.s.sol --rpc-url localhost:8545 --broadcast --private-key {$USER_PK}`
 
 - Set service:
-  `forge script packages/foundry/script/SetService.s.sol --rpc-url localhost:8545 --broadcast --private-key {$USER_PK}`
+  `cd packages/foundry && forge script script/SetService.s.sol --rpc-url localhost:8545 --broadcast --private-key {$USER_PK}`
+
+- Run tests:
+  `cd packages/foundry && forge test --rpc-url localhost:8545`
