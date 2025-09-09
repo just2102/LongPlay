@@ -3384,6 +3384,12 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@se-2/avs@workspace:packages/avs":
+  version: 0.0.0-use.local
+  resolution: "@se-2/avs@workspace:packages/avs"
+  languageName: unknown
+  linkType: soft
+
 "@se-2/foundry@workspace:packages/foundry":
   version: 0.0.0-use.local
   resolution: "@se-2/foundry@workspace:packages/foundry"

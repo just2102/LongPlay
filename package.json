@@ -33,6 +33,7 @@
     "foundry:test": "yarn workspace @se-2/foundry test",
     "foundry:verify": "yarn workspace @se-2/foundry verify",
     "foundry:extract-hook-abi": "yarn workspace @se-2/foundry node scripts-js/extractHookAbi.js",
+    "avs:extract-abi": "yarn workspace @se-2/avs node scripts-js/extractAVSAbi.js",
     "generate": "yarn foundry:generate",
     "postinstall": "husky install",
     "ipfs": "yarn workspace @se-2/nextjs ipfs",

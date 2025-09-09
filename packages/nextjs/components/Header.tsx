@@ -26,7 +26,7 @@ export const Header = () => {
           ></ul>
         </details>
 
-        <div className="hidden lg:flex lg:flex-nowrap menu menu-horizontal px-1 gap-2">
+        <div className="hidden gray-950 lg:flex lg:flex-nowrap menu menu-horizontal px-1 gap-2">
           <ConnectButton />
         </div>
       </div>

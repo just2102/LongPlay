@@ -1,3 +1,4 @@
+import { avsAbi } from "./abis/avs.abi";
 import { hookAbi } from "./abis/hook.abi";
 import { FeeAmount } from "@uniswap/v3-sdk";
 import { GenericContractsDeclaration } from "~~/utils/scaffold-eth/contract";
@@ -13,6 +14,10 @@ const deployedContracts = {
     LPRebalanceHook: {
       address: "0xB34e52bDd362015B06E98df77538a22730245440",
       abi: hookAbi,
+    },
+    AVS: {
+      address: "0x8169cc845e1df4f0381096b1668b1aa4a0c924b4",
+      abi: avsAbi,
     },
   },
 } as const;

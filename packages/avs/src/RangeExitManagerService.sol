@@ -5,6 +5,7 @@ import {ECDSAServiceManagerBase} from "eigenlayer-middleware/src/unaudited/ECDSA
 import {ECDSAStakeRegistry} from "eigenlayer-middleware/src/unaudited/ECDSAStakeRegistry.sol";
 
 import {IRangeExitServiceManager} from "./interfaces/IRangeExitServiceManager.sol";
+import {IPositionManagerMinimal} from "./interfaces/IPositionManagerMinimal.sol";
 
 contract RangeExitManagerService is ECDSAServiceManagerBase, IRangeExitServiceManager {
     mapping(bytes32 => Task) public tasks;
@@ -47,6 +48,24 @@ contract RangeExitManagerService is ECDSAServiceManagerBase, IRangeExitServiceMa
         // unused
     }
 
+    // @notice Configures a position to be managed by the service.
+    function configurePosition(int24 tickThreshold, uint256 positionId, address posM)
+        external
+        view
+        returns (UserConfig memory)
+    {
+        address owner = msg.sender;
+        // check that the user actually owns the position
+        address positionOwner = IPositionManagerMinimal(posM).ownerOf(positionId);
+        require(positionOwner == owner, "User does not own the position");
+
+        UserConfig memory config =
+            UserConfig({tickThreshold: tickThreshold, owner: owner, positionId: positionId, posM: posM});
+
+        return config;
+    }
+
+    // todo: only hook contract should be able to create tasks
     function createNewTask(PoolKeyCustom calldata poolKey, int24 lastTick, uint256 deadline)
         external
         returns (bytes32)

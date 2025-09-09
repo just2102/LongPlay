@@ -21,6 +21,13 @@ interface IRangeExitServiceManager {
         uint32 createdBlock;
     }
 
+    struct UserConfig {
+        int24 tickThreshold;
+        address owner;
+        uint256 positionId;
+        address posM;
+    }
+
     event WithdrawNeeded(PoolKeyCustom indexed poolKey, int24 indexed lastTick, uint256 deadline);
     event TaskResponded(bytes32 indexed taskHash, Task task, address operator);
 

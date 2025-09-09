@@ -9,6 +9,14 @@
 4. Go to packages/nextjs/contracts/deployedContracts.ts and add the deployed contracts to the `deployedContracts` object.
 5. Run `yarn start` to start the frontend.
 
+6. Deploy the AVS contract:
+   `cd packages/avs && forge script script/DeployEigenLayerCore.s.sol --rpc-url http://localhost:8545 --broadcast --optimize --optimizer-runs 200 --via-ir`
+   `cd packages/avs && forge script script/HelloWorldDeployer.s.sol --rpc-url http://localhost:8545 --broadcast --optimize --optimizer-runs 200 --via-ir`
+   The deployed contracts will be written to `packages/avs/deployments/{chainId}.json`
+7. Extract the ABI of the AVS contract:
+   `yarn avs:extract-abi`
+   The ABI will be written to `packages/avs/abis/RangeExitManagerService.abi.json`
+
 ### Additional scripts:
 
 - Deploy hook:

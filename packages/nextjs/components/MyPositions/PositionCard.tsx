@@ -3,10 +3,10 @@ import { PositionStored } from "~~/utils/localStorage";
 
 export const PositionCard = ({
   position,
-  handleUpdatePosition,
+  handleConfigurePosition,
 }: {
   position: PositionStored;
-  handleUpdatePosition: (position: PositionStored) => void;
+  handleConfigurePosition: (position: PositionStored) => void;
 }) => {
   return (
     <div
@@ -39,7 +39,7 @@ export const PositionCard = ({
 
       <Button
         onClick={() => {
-          handleUpdatePosition({
+          handleConfigurePosition({
             ...position,
             isManaged: !position.isManaged,
           });
