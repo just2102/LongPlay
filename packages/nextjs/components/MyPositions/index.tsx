@@ -4,6 +4,7 @@ import { PositionCard } from "./PositionCard";
 import { MOCK_POOL_ID } from "~~/contracts/deployedContracts";
 import { useChainId } from "~~/hooks/useChainId";
 import { useConfigurePosition } from "~~/hooks/useConfigurePosition";
+import { useMintPosition } from "~~/hooks/useMintPosition";
 import {
   PositionStored,
   clearPositions,
@@ -16,6 +17,8 @@ import { getContractsData } from "~~/utils/scaffold-eth/contract";
 export const MyPositions = () => {
   const chainId = useChainId();
   const { configureAction } = useConfigurePosition();
+
+  const { pool } = useMintPosition();
 
   const positions = useSyncExternalStore(
     subscribeToPositions,
@@ -58,10 +61,20 @@ export const MyPositions = () => {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {positions.map(position => (
-          <PositionCard key={position.tokenId} position={position} handleConfigurePosition={handleConfigurePosition} />
-        ))}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 auto-rows-fr items-stretch">
+        {positions.map(position => {
+          const baseCurrency = pool?.currency0;
+          const quoteCurrency = pool?.currency1;
+          return (
+            <PositionCard
+              key={position.tokenId}
+              position={position}
+              handleConfigurePosition={handleConfigurePosition}
+              baseCurrency={baseCurrency}
+              quoteCurrency={quoteCurrency}
+            />
+          );
+        })}
       </div>
     </div>
   );

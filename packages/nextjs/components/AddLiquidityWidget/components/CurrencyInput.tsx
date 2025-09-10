@@ -32,9 +32,18 @@ export const CurrencyInput = ({
 
   const decimals = currency?.decimals || 18;
 
+  const readableBalance = tokenBalance ? Number(formatUnits(tokenBalance, decimals)) : undefined;
+
   return (
-    <label className="flex flex-col">
-      <span className="text-sm opacity-70 text-gray-700">Amount {label}</span>
+    <label className="flex flex-col gap-1">
+      <div className="flex items-center justify-between">
+        <span className="text-sm font-medium text-gray-700">Amount {label}</span>
+        {currency?.symbol && (
+          <span className="px-2 py-0.5 text-xs rounded-full bg-gray-100 text-gray-700 border border-gray-200">
+            {currency.symbol}
+          </span>
+        )}
+      </div>
       <input
         type="number"
         min={0}
@@ -42,15 +51,25 @@ export const CurrencyInput = ({
         value={amountReadable}
         onChange={e => {
           setAmountReadable(Number(e.target.value));
-          setLastEdited("A");
+          setLastEdited(label as "A" | "B");
         }}
-        className="input input-bordered bg-gray-950 text-white"
+        className="input input-bordered bg-white text-gray-900 focus:ring-2 focus:ring-gray-300"
       />
 
-      {tokenBalance && (
-        <span className="text-sm opacity-70 flex justify-between text-gray-700">
-          Balance: {Number(formatUnits(tokenBalance, decimals)).toFixed(6)}
-        </span>
+      {readableBalance !== undefined && (
+        <div className="flex items-center justify-between text-xs text-gray-600">
+          <span>Balance: {readableBalance.toFixed(6)}</span>
+          <button
+            type="button"
+            className="underline hover:opacity-80 cursor-pointer"
+            onClick={() => {
+              setAmountReadable(readableBalance);
+              setLastEdited(label as "A" | "B");
+            }}
+          >
+            Max
+          </button>
+        </div>
       )}
     </label>
   );

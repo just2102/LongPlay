@@ -1,17 +1,21 @@
 import { Button } from "../Button";
+import { Currency } from "@uniswap/sdk-core";
+import { tickToPrice } from "@uniswap/v4-sdk";
 import { PositionStored } from "~~/utils/localStorage";
 
-export const PositionCard = ({
-  position,
-  handleConfigurePosition,
-}: {
+interface PositionCardProps {
   position: PositionStored;
   handleConfigurePosition: (position: PositionStored) => void;
-}) => {
+  baseCurrency: Currency | undefined;
+  quoteCurrency: Currency | undefined;
+}
+
+export const PositionCard = ({ position, handleConfigurePosition, baseCurrency, quoteCurrency }: PositionCardProps) => {
+  const isFullRangePosition = position.tickLower <= -887200 && position.tickUpper >= 887100;
   return (
     <div
       className="bg-white border border-gray-200 rounded-xl p-6 
-    shadow-sm hover:shadow-md transition-all duration-200 hover:border-gray-300"
+    shadow-sm hover:shadow-md transition-all duration-200 hover:border-gray-300 h-full flex flex-col"
     >
       <div className="flex justify-between items-start mb-4">
         <div>
@@ -24,15 +28,47 @@ export const PositionCard = ({
         </div>
       </div>
 
-      <div className="space-y-3 mb-6">
+      <div className="space-y-3 mb-4">
         <div className="grid grid-cols-2 gap-4">
           <div className="bg-gray-50 rounded-lg p-3">
             <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">Lower Tick</p>
-            <p className="text-lg font-mono font-semibold text-gray-900">{position.tickLower}</p>
+            {isFullRangePosition ? (
+              <p className="text-lg font-semibold text-gray-900">Full range</p>
+            ) : (
+              <>
+                <p className="text-lg font-mono font-semibold text-gray-900">{position.tickLower}</p>
+                <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">Price</p>
+                <p
+                  className={`text-lg font-mono font-semibold text-gray-900 
+                  ${!baseCurrency || !quoteCurrency ? "animate-pulse opacity-80" : ""}
+                  `}
+                >
+                  {baseCurrency &&
+                    quoteCurrency &&
+                    tickToPrice(baseCurrency, quoteCurrency, position.tickLower)?.toSignificant(6)}
+                </p>
+              </>
+            )}
           </div>
           <div className="bg-gray-50 rounded-lg p-3">
             <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">Upper Tick</p>
-            <p className="text-lg font-mono font-semibold text-gray-900">{position.tickUpper}</p>
+            {isFullRangePosition ? (
+              <p className="text-lg font-semibold text-gray-900">Full range</p>
+            ) : (
+              <>
+                <p className="text-lg font-mono font-semibold text-gray-900">{position.tickUpper}</p>
+                <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">Price</p>
+                <p
+                  className={`text-lg font-mono font-semibold text-gray-900 
+                  ${!baseCurrency || !quoteCurrency ? "animate-pulse opacity-80" : ""}
+                  `}
+                >
+                  {baseCurrency &&
+                    quoteCurrency &&
+                    tickToPrice(baseCurrency, quoteCurrency, position.tickUpper)?.toSignificant(6)}
+                </p>
+              </>
+            )}
           </div>
         </div>
       </div>
@@ -44,7 +80,7 @@ export const PositionCard = ({
             isManaged: !position.isManaged,
           });
         }}
-        className="w-full"
+        className="w-full mt-auto"
       >
         Configure
       </Button>

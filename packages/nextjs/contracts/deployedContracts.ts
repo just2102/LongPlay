@@ -16,7 +16,7 @@ const deployedContracts = {
       abi: hookAbi,
     },
     AVS: {
-      address: "0x8169cc845e1df4f0381096b1668b1aa4a0c924b4",
+      address: "0x393f953291462a34ef3dc6ee33567a592af46c8a",
       abi: avsAbi,
     },
   },

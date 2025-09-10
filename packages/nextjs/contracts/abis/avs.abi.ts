@@ -121,6 +121,11 @@ export const avsAbi = [
         internalType: "int24",
       },
       {
+        name: "strategyId",
+        type: "uint8",
+        internalType: "enum IRangeExitServiceManager.StrategyId",
+      },
+      {
         name: "positionId",
         type: "uint256",
         internalType: "uint256",
@@ -141,6 +146,11 @@ export const avsAbi = [
             name: "tickThreshold",
             type: "int24",
             internalType: "int24",
+          },
+          {
+            name: "strategyId",
+            type: "uint8",
+            internalType: "uint8",
           },
           {
             name: "owner",

@@ -2,6 +2,7 @@ import { useChainId } from "./useChainId";
 import { useAccount } from "wagmi";
 import { readContract } from "wagmi/actions";
 import { wagmiConfig } from "~~/services/web3/wagmiConfig";
+import { StrategyId } from "~~/types/avs.types";
 import { getContractsData } from "~~/utils/scaffold-eth/contract";
 
 export const useConfigurePosition = () => {
@@ -18,13 +19,14 @@ export const useConfigurePosition = () => {
     posM: string;
   }) => {
     const avsContract = getContractsData(chainId).AVS;
+    const strategyId = StrategyId.BurnWithdrawToAave;
 
     try {
       const data = await readContract(wagmiConfig, {
         address: avsContract.address,
         abi: avsContract.abi,
         functionName: "configurePosition",
-        args: [tickThreshold, BigInt(positionId), posM],
+        args: [tickThreshold, strategyId, BigInt(positionId), posM],
         account: address,
       });
 
