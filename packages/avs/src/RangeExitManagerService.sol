@@ -49,20 +49,34 @@ contract RangeExitManagerService is ECDSAServiceManagerBase, IRangeExitServiceMa
     }
 
     // @notice Configures a position to be managed by the service.
-    function configurePosition(int24 tickThreshold, uint256 positionId, address posM)
+    function configurePosition(int24 tickThreshold, StrategyId strategyId, uint256 positionId, address posM)
         external
         view
         returns (UserConfig memory)
     {
-        address owner = msg.sender;
-        // check that the user actually owns the position
         address positionOwner = IPositionManagerMinimal(posM).ownerOf(positionId);
-        require(positionOwner == owner, "User does not own the position");
+        require(positionOwner == msg.sender, "User does not own the position");
+        require(isStrategyIdValid(strategyId), "Invalid strategy id");
 
-        UserConfig memory config =
-            UserConfig({tickThreshold: tickThreshold, owner: owner, positionId: positionId, posM: posM});
+        UserConfig memory config = UserConfig({
+            tickThreshold: tickThreshold,
+            strategyId: uint8(strategyId),
+            owner: msg.sender,
+            positionId: positionId,
+            posM: posM
+        });
 
         return config;
+    }
+
+    function isStrategyIdValid(StrategyId strategyId) internal pure returns (bool) {
+        if (strategyId == StrategyId.BurnWithdrawToAave) {
+            return true;
+        } else if (strategyId == StrategyId.None) {
+            return true;
+        }
+
+        return false;
     }
 
     // todo: only hook contract should be able to create tasks

@@ -21,8 +21,14 @@ interface IRangeExitServiceManager {
         uint32 createdBlock;
     }
 
+    enum StrategyId {
+        None,
+        BurnWithdrawToAave
+    }
+
     struct UserConfig {
         int24 tickThreshold;
+        uint8 strategyId;
         address owner;
         uint256 positionId;
         address posM;

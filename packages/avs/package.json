@@ -1,5 +1,8 @@
 {
   "name": "@se-2/avs",
   "version": "0.0.1",
-  "type": "module"
+  "type": "module",
+  "scripts": {
+    "deployAll": "forge script script/DeployEigenLayerCore.s.sol --rpc-url http://localhost:8545 --broadcast --optimize --optimizer-runs 200 --via-ir && forge script script/HelloWorldDeployer.s.sol --rpc-url http://localhost:8545 --broadcast --optimize --optimizer-runs 200 --via-ir"
+  }
 }
