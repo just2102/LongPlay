@@ -1,9 +1,9 @@
 import { useChainId } from "./useChainId";
 import { useAccount } from "wagmi";
-import { readContract } from "wagmi/actions";
+import { readContract, writeContract } from "wagmi/actions";
 import { wagmiConfig } from "~~/services/web3/wagmiConfig";
 import { StrategyId } from "~~/types/avs.types";
-import { getContractsData } from "~~/utils/scaffold-eth/contract";
+import { Contract, getContractsData } from "~~/utils/scaffold-eth/contract";
 
 export const useConfigurePosition = () => {
   const chainId = useChainId();
@@ -16,17 +16,43 @@ export const useConfigurePosition = () => {
   }: {
     tickThreshold: number;
     positionId: number;
-    posM: string;
+    posM: Contract<"PositionManager">;
   }) => {
+    if (!address) {
+      throw new Error("No address found");
+    }
+
     const avsContract = getContractsData(chainId).AVS;
     const strategyId = StrategyId.BurnWithdrawToAave;
+
+    const hasApproval = await readContract(wagmiConfig, {
+      address: posM.address,
+      abi: posM.abi,
+      functionName: "isApprovedForAll",
+      args: [address, avsContract.address],
+    });
+
+    if (!hasApproval) {
+      try {
+        const tx = await writeContract(wagmiConfig, {
+          address: posM.address,
+          abi: posM.abi,
+          functionName: "setApprovalForAll",
+          args: [avsContract.address, true],
+        });
+        console.log("Approval TX:", tx);
+      } catch (error) {
+        console.error(`Error approving position ${positionId} to be spent by the AVS`);
+        console.error(error);
+      }
+    }
 
     try {
       const data = await readContract(wagmiConfig, {
         address: avsContract.address,
         abi: avsContract.abi,
         functionName: "configurePosition",
-        args: [tickThreshold, strategyId, BigInt(positionId), posM],
+        args: [tickThreshold, strategyId, BigInt(positionId), posM.address],
         account: address,
       });
 

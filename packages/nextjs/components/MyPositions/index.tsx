@@ -30,7 +30,7 @@ export const MyPositions = () => {
     await configureAction({
       tickThreshold: -120,
       positionId: position.tokenId,
-      posM: getContractsData(chainId).PositionManager.address,
+      posM: getContractsData(chainId).PositionManager,
     });
 
     updatePosition(MOCK_POOL_ID, position);

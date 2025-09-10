@@ -57,6 +57,8 @@ contract RangeExitManagerService is ECDSAServiceManagerBase, IRangeExitServiceMa
         address positionOwner = IPositionManagerMinimal(posM).ownerOf(positionId);
         require(positionOwner == msg.sender, "User does not own the position");
         require(isStrategyIdValid(strategyId), "Invalid strategy id");
+        bool isApproved = IPositionManagerMinimal(posM).isApprovedForAll(positionOwner, address(this));
+        require(isApproved, "Position is not approved for the AVS");
 
         UserConfig memory config = UserConfig({
             tickThreshold: tickThreshold,
