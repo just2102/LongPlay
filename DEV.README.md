@@ -4,7 +4,7 @@
 2. Run `cd packages/foundry && forge script script/DeploySetup.s.sol --rpc-url localhost:8545 --broadcast --private-key {$USER_PK}`
    The deployed contracts will be written to `packages/foundry/deployments/{chainId}.json`
 3. Run `yarn foundry:extract-hook-abi` in the root project folder to extract the hook ABI if needed.
-   The ABI will be written to `packages/foundry/abis/LPRebalanceHook.abi.json`
+   The ABI will be written to `packages/foundry/abis/LPRebalanceHook.json`
 
 4. Go to packages/nextjs/contracts/deployedContracts.ts and add the deployed contracts to the `deployedContracts` object.
 5. Run `yarn start` to start the frontend.

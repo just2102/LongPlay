@@ -10,7 +10,7 @@ function extractAVSAbi() {
     throw new Error("Abi not found");
   }
 
-  const savePath = "../avs/abis/RangeExitManagerService.abi.json";
+  const savePath = "../avs/abis/RangeExitManagerService.json";
   fs.writeFileSync(savePath, JSON.stringify(abi, null, 2));
   console.log("Abi saved to", savePath);
 }

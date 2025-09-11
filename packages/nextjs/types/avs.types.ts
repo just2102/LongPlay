@@ -1,4 +1,4 @@
 export const StrategyId = {
   None: 0,
-  BurnWithdrawToAave: 1,
+  Asset0ToAave: 1,
 } as const;

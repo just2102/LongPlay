@@ -23,7 +23,7 @@ interface IRangeExitServiceManager {
 
     enum StrategyId {
         None,
-        BurnWithdrawToAave
+        Asset0ToAave
     }
 
     struct UserConfig {
@@ -37,7 +37,12 @@ interface IRangeExitServiceManager {
     event WithdrawNeeded(PoolKeyCustom indexed poolKey, int24 indexed lastTick, uint256 deadline);
     event TaskResponded(bytes32 indexed taskHash, Task task, address operator);
 
-    function createNewTask(PoolKeyCustom calldata poolKey, int24 lastTick, uint256 deadline)
-        external
-        returns (bytes32);
+    // @notice Emitted when a new position is configured
+    event PositionConfigured(int24 indexed tickThreshold, uint256 indexed positionId, UserConfig config);
+    // Emitted when the operator requests the AVS to modify a batch of positions for a task
+    event PositionsModificationRequested(bytes32 indexed taskHash, uint256 indexed batchId, uint256 positionsCount);
+    // Emitted for each successfully modified position (withdrawn from Uniswap and routed)
+    event PositionModified(uint256 indexed positionId, address indexed owner);
+    // Emitted when a user cancels delegation/approval and the AVS processes refunding leftovers
+    event DelegationCancelled(address indexed owner, uint256 indexed positionId, uint256 refundedNative);
 }

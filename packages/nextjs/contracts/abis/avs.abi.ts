@@ -113,6 +113,24 @@ export const avsAbi = [
   },
   {
     type: "function",
+    name: "cancelDelegation",
+    inputs: [
+      {
+        name: "positionId",
+        type: "uint256",
+        internalType: "uint256",
+      },
+      {
+        name: "posM",
+        type: "address",
+        internalType: "address",
+      },
+    ],
+    outputs: [],
+    stateMutability: "nonpayable",
+  },
+  {
+    type: "function",
     name: "configurePosition",
     inputs: [
       {
@@ -170,7 +188,7 @@ export const avsAbi = [
         ],
       },
     ],
-    stateMutability: "view",
+    stateMutability: "nonpayable",
   },
   {
     type: "function",
@@ -425,6 +443,100 @@ export const avsAbi = [
         name: "_rewardsInitiator",
         type: "address",
         internalType: "address",
+      },
+    ],
+    outputs: [],
+    stateMutability: "nonpayable",
+  },
+  {
+    type: "function",
+    name: "modifyPositions",
+    inputs: [
+      {
+        name: "task",
+        type: "tuple",
+        internalType: "struct IRangeExitServiceManager.Task",
+        components: [
+          {
+            name: "poolKey",
+            type: "tuple",
+            internalType: "struct IRangeExitServiceManager.PoolKeyCustom",
+            components: [
+              {
+                name: "currency0",
+                type: "address",
+                internalType: "address",
+              },
+              {
+                name: "currency1",
+                type: "address",
+                internalType: "address",
+              },
+              {
+                name: "fee",
+                type: "uint24",
+                internalType: "uint24",
+              },
+              {
+                name: "tickSpacing",
+                type: "int24",
+                internalType: "int24",
+              },
+              {
+                name: "hookAddress",
+                type: "address",
+                internalType: "address",
+              },
+            ],
+          },
+          {
+            name: "lastTick",
+            type: "int24",
+            internalType: "int24",
+          },
+          {
+            name: "deadline",
+            type: "uint256",
+            internalType: "uint256",
+          },
+          {
+            name: "createdBlock",
+            type: "uint32",
+            internalType: "uint32",
+          },
+        ],
+      },
+      {
+        name: "positions",
+        type: "tuple[]",
+        internalType: "struct IRangeExitServiceManager.UserConfig[]",
+        components: [
+          {
+            name: "tickThreshold",
+            type: "int24",
+            internalType: "int24",
+          },
+          {
+            name: "strategyId",
+            type: "uint8",
+            internalType: "uint8",
+          },
+          {
+            name: "owner",
+            type: "address",
+            internalType: "address",
+          },
+          {
+            name: "positionId",
+            type: "uint256",
+            internalType: "uint256",
+          },
+          {
+            name: "posM",
+            type: "address",
+            internalType: "address",
+          },
+        ],
       },
     ],
     outputs: [],
@@ -864,6 +976,31 @@ export const avsAbi = [
   },
   {
     type: "event",
+    name: "DelegationCancelled",
+    inputs: [
+      {
+        name: "owner",
+        type: "address",
+        indexed: true,
+        internalType: "address",
+      },
+      {
+        name: "positionId",
+        type: "uint256",
+        indexed: true,
+        internalType: "uint256",
+      },
+      {
+        name: "refundedNative",
+        type: "uint256",
+        indexed: false,
+        internalType: "uint256",
+      },
+    ],
+    anonymous: false,
+  },
+  {
+    type: "event",
     name: "Initialized",
     inputs: [
       {
@@ -890,6 +1027,102 @@ export const avsAbi = [
         type: "address",
         indexed: true,
         internalType: "address",
+      },
+    ],
+    anonymous: false,
+  },
+  {
+    type: "event",
+    name: "PositionConfigured",
+    inputs: [
+      {
+        name: "tickThreshold",
+        type: "int24",
+        indexed: true,
+        internalType: "int24",
+      },
+      {
+        name: "positionId",
+        type: "uint256",
+        indexed: true,
+        internalType: "uint256",
+      },
+      {
+        name: "config",
+        type: "tuple",
+        indexed: false,
+        internalType: "struct IRangeExitServiceManager.UserConfig",
+        components: [
+          {
+            name: "tickThreshold",
+            type: "int24",
+            internalType: "int24",
+          },
+          {
+            name: "strategyId",
+            type: "uint8",
+            internalType: "uint8",
+          },
+          {
+            name: "owner",
+            type: "address",
+            internalType: "address",
+          },
+          {
+            name: "positionId",
+            type: "uint256",
+            internalType: "uint256",
+          },
+          {
+            name: "posM",
+            type: "address",
+            internalType: "address",
+          },
+        ],
+      },
+    ],
+    anonymous: false,
+  },
+  {
+    type: "event",
+    name: "PositionModified",
+    inputs: [
+      {
+        name: "positionId",
+        type: "uint256",
+        indexed: true,
+        internalType: "uint256",
+      },
+      {
+        name: "owner",
+        type: "address",
+        indexed: true,
+        internalType: "address",
+      },
+    ],
+    anonymous: false,
+  },
+  {
+    type: "event",
+    name: "PositionsModificationRequested",
+    inputs: [
+      {
+        name: "taskHash",
+        type: "bytes32",
+        indexed: true,
+        internalType: "bytes32",
+      },
+      {
+        name: "batchId",
+        type: "uint256",
+        indexed: true,
+        internalType: "uint256",
+      },
+      {
+        name: "positionsCount",
+        type: "uint256",
+        indexed: false,
+        internalType: "uint256",
       },
     ],
     anonymous: false,

@@ -1,8 +1,14 @@
 import { ethers, NonceManager } from "ethers";
 import * as dotenv from "dotenv";
-const fs = require("fs");
-const path = require("path");
+import { UserConfig } from "./types";
+import * as fs from "fs";
+import path from "path";
+import { fileURLToPath } from "url";
+import { saveConfig } from "./storage";
 dotenv.config();
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 // Check if the process.env object is empty
 if (!Object.keys(process.env).length) {
@@ -15,7 +21,7 @@ const walletUnmanaged = new ethers.Wallet(process.env.PRIVATE_KEY!, provider);
 const wallet = new NonceManager(walletUnmanaged);
 
 /// TODO: Hack
-let chainId = 1;
+let chainId = 31337;
 
 // todo: deploy this contract
 const avsDeploymentData = JSON.parse(
@@ -252,8 +258,14 @@ const registerOperator = async () => {
   }
 };
 
+// Flow: price change on Uniswap
+// 1) listen to hook WithdrawNeeded
+// 2) determine valid positions via database query
+// 3) call AVS contract to modify positions (batch)
 const monitorNewTasks = async () => {
   if (!hook) throw new Error("No hook contract instance");
+  if (!rangeExitManagerService)
+    throw new Error("No rangeExitManagerService contract instance");
   hook.on(
     "WithdrawNeeded",
     async (lastTick, currency0, currency1, tickSpacing, fee, event) => {
@@ -266,21 +278,61 @@ const monitorNewTasks = async () => {
         blockNumber: event.blockNumber,
         txHash: event.log.transactionHash,
       });
+
+      // TODO: Build pool key compatible with IRangeExitServiceManager.Task
+      // TODO: Query valid positions offchain and prepare UserConfig[]
+      // const positions = await discoverValidPositions(...)
+      // await rangeExitManagerService.modifyPositions(task, positions)
+
       try {
-        await submitWithdrawLiquidity(
-          lastTick,
-          currency0,
-          currency1,
-          fee,
-          tickSpacing
-        );
+        // await submitWithdrawLiquidity(
+        //   lastTick,
+        //   currency0,
+        //   currency1,
+        //   fee,
+        //   tickSpacing
+        // );
       } catch (e) {
         console.error("withdrawLiquidity failed:", e);
       }
     }
   );
 
-  console.log("Monitoring for WithdrawNeeded events...");
+  rangeExitManagerService.on(
+    "PositionConfigured",
+    async (tickThreshold: bigint, positionId: bigint, config: UserConfig) => {
+      console.log("PositionConfigured received:", {
+        tickThreshold,
+        positionId,
+        config,
+      });
+      try {
+        await saveConfig({
+          owner: config.owner,
+          positionId: positionId.toString(),
+          tickThreshold: Number(tickThreshold),
+          strategyId: Number(config.strategyId),
+          posM: config.posM,
+        });
+        console.log("[redis] saved cfg", {
+          positionId: positionId.toString(),
+          tickThreshold: Number(tickThreshold),
+        });
+      } catch (e) {
+        console.error("[redis] saveConfig failed:", e);
+      }
+    }
+  );
+
+  rangeExitManagerService.on(
+    "DelegationCancelled",
+    async (positionId, posM) => {
+      console.log("DelegationCancelled received:", { positionId, posM });
+      // todo: remove from Redis
+    }
+  );
+
+  console.log("Monitoring for events...");
 };
 
 const main = async () => {

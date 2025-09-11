@@ -6,3 +6,9 @@
 
 OR if you're lazy:
 `yarn run deployAll`
+
+# Starting the operator
+
+`yarn run operator`
+OR
+`npx tsx operator/index.ts`

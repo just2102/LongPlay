@@ -3,6 +3,13 @@
   "version": "0.0.1",
   "type": "module",
   "scripts": {
-    "deployAll": "forge script script/DeployEigenLayerCore.s.sol --rpc-url http://localhost:8545 --broadcast --optimize --optimizer-runs 200 --via-ir && forge script script/HelloWorldDeployer.s.sol --rpc-url http://localhost:8545 --broadcast --optimize --optimizer-runs 200 --via-ir"
+    "deployAll": "forge script script/DeployEigenLayerCore.s.sol --rpc-url http://localhost:8545 --broadcast --optimize --optimizer-runs 200 --via-ir && forge script script/HelloWorldDeployer.s.sol --rpc-url http://localhost:8545 --broadcast --optimize --optimizer-runs 200 --via-ir",
+    "operator": "npx tsx operator/index.ts"
+  },
+  "dependencies": {
+    "dotenv": "^17.2.2",
+    "ethers": "6.15",
+    "ioredis": "^5.7.0",
+    "viem": "^2.37.5"
   }
 }

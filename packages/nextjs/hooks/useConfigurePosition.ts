@@ -23,7 +23,7 @@ export const useConfigurePosition = () => {
     }
 
     const avsContract = getContractsData(chainId).AVS;
-    const strategyId = StrategyId.BurnWithdrawToAave;
+    const strategyId = StrategyId.Asset0ToAave;
 
     const hasApproval = await readContract(wagmiConfig, {
       address: posM.address,
@@ -48,7 +48,7 @@ export const useConfigurePosition = () => {
     }
 
     try {
-      const data = await readContract(wagmiConfig, {
+      const data = await writeContract(wagmiConfig, {
         address: avsContract.address,
         abi: avsContract.abi,
         functionName: "configurePosition",

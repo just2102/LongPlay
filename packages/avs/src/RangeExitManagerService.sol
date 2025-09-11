@@ -51,7 +51,6 @@ contract RangeExitManagerService is ECDSAServiceManagerBase, IRangeExitServiceMa
     // @notice Configures a position to be managed by the service.
     function configurePosition(int24 tickThreshold, StrategyId strategyId, uint256 positionId, address posM)
         external
-        view
         returns (UserConfig memory)
     {
         address positionOwner = IPositionManagerMinimal(posM).ownerOf(positionId);
@@ -68,11 +67,13 @@ contract RangeExitManagerService is ECDSAServiceManagerBase, IRangeExitServiceMa
             posM: posM
         });
 
+        emit PositionConfigured(tickThreshold, positionId, config);
+
         return config;
     }
 
     function isStrategyIdValid(StrategyId strategyId) internal pure returns (bool) {
-        if (strategyId == StrategyId.BurnWithdrawToAave) {
+        if (strategyId == StrategyId.Asset0ToAave) {
             return true;
         } else if (strategyId == StrategyId.None) {
             return true;
@@ -128,6 +129,45 @@ contract RangeExitManagerService is ECDSAServiceManagerBase, IRangeExitServiceMa
 
         // require(magicValue == isValidSignatureResult, "Invalid signature");
     }
+
+    // Backend AVS flow: modify positions for a price-change task
+    // Steps (offchain + onchain coordination):
+    //  - offchain validates candidate positions via static calls (isOperator, balanceOf)
+    //  - offchain submits a batch of UserConfig entries here for processing
+    //  - onchain will perform:
+    //      1) burn liquidity / withdraw from Uniswap (integration via position manager)
+    //      2) unwrap/swap as needed and supply to Aave per strategy
+    //      3) account for fees and record per-user results
+    function modifyPositions(Task calldata task, UserConfig[] calldata positions) external {
+        // TODO: require onlyOperator() or appointee role once finalizing auth
+        bytes32 thash = keccak256(abi.encode(task));
+        require(tasks[thash].lastTick != 0, "Task not found");
+        emit PositionsModificationRequested(thash, 0, positions.length);
+
+        // TODO: iterate positions and perform strategy-specific actions
+        // for (uint256 i = 0; i < positions.length; i++) {
+        //     _applyStrategy(task, positions[i]);
+        // }
+        // NOTE: emit PositionModified for each processed position
+    }
+
+    function cancelDelegation(uint256 positionId, address posM) external {
+        // Scenario: user cancels approval/delegation
+        // On-chain expected actions:
+        //  - verify caller is owner of the position
+        //  - opt-out of position management
+        address owner = IPositionManagerMinimal(posM).ownerOf(positionId);
+        require(owner == msg.sender, "Only position owner");
+        emit DelegationCancelled(owner, positionId, 0);
+    }
+
+    // function _applyStrategy(Task memory task, UserConfig memory config) internal {
+    //     if (StrategyId(config.strategyId) == StrategyId.BurnWithdrawToAave) {
+    //         // TODO: integrate with position manager to burn liquidity and withdraw
+    //         // TODO: route assets to Aave pool and update accounting
+    //         emit PositionModified(config.positionId, config.owner);
+    //     }
+    // }
 
     function slashOperator(Task calldata task, address operator) external {
         // check that the task is valid, hasn't been responsed yet
