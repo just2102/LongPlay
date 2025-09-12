@@ -11,6 +11,9 @@ export const usePoolData = () => {
     abi: getContractsData(chainId).StateView.abi,
     functionName: "getSlot0",
     args: [MOCK_POOL_ID],
+    query: {
+      refetchInterval: 3_500,
+    },
   });
 
   const { data: liquidity, isLoading: isLoadingLiquidity } = useReadContract({
@@ -18,6 +21,9 @@ export const usePoolData = () => {
     abi: getContractsData(chainId).StateView.abi,
     functionName: "getLiquidity",
     args: [MOCK_POOL_ID],
+    query: {
+      refetchInterval: 3_500,
+    },
   });
 
   const sqrtPriceX96Current = slot0 ? (slot0[0] as bigint) : undefined;

@@ -1,6 +1,7 @@
 import { permit2Abi } from "./abis/permit2.abi";
 import { posmAbi } from "./abis/posm.abi";
 import { stateViewAbi } from "./abis/stateView.abi";
+import { uniRouterAbi } from "./abis/uniRouter.abi";
 import { GenericContractsDeclaration } from "~~/utils/scaffold-eth/contract";
 
 /**
@@ -27,6 +28,10 @@ const externalContracts = {
     Permit2: {
       address: "0x000000000022D473030F116dDEE9F6B43aC78BA3",
       abi: permit2Abi,
+    },
+    UniRouter: {
+      address: "0x66a9893cc07d91d95644aedd05d03f95e1dba8af",
+      abi: uniRouterAbi,
     },
   },
 } as const;

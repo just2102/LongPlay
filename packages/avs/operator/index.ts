@@ -5,6 +5,7 @@ import * as fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
 import { saveConfig } from "./storage";
+import { redis } from "./Redis";
 dotenv.config();
 
 const __filename = fileURLToPath(import.meta.url);
@@ -131,11 +132,9 @@ const avsDirectory = new ethers.Contract(
   wallet
 );
 
-const hookAddress = process.env.LP_REBALANCE_HOOK_ADDRESS!;
+const hookAddress = process.env.HOOK_ADDRESS;
 if (!hookAddress) {
-  throw new Error(
-    "LP_REBALANCE_HOOK_ADDRESS not found in environment variables"
-  );
+  throw new Error("HOOK_ADDRESS not found in environment variables");
 }
 
 const positionManagerAddress = process.env.POSITION_MANAGER_ADDRESS!; // todo: keep a mapping of position managers on supported chains

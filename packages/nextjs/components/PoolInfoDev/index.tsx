@@ -1,3 +1,4 @@
+import { SwapMock } from "./SwapMock";
 import { useMintPosition } from "~~/hooks/useMintPosition";
 
 export const PoolInfoDev = () => {
@@ -21,6 +22,8 @@ export const PoolInfoDev = () => {
           <span>Hook address: {pool?.hooks}</span>
         </div>
       )}
+
+      <SwapMock />
     </>
   );
 };
