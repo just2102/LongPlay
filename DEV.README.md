@@ -17,6 +17,10 @@
    `yarn avs:extract-abi`
    The ABI will be written to `packages/avs/abis/RangeExitManagerService.abi.json`
 
+8. Add envs to the packages/avs.env file, including the HOOK_ADDRESS
+9. Run the operator:
+   `cd packages/avs && yarn run operator`
+
 ### Additional scripts:
 
 - Deploy hook:
