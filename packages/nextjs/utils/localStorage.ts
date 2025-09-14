@@ -1,8 +1,12 @@
+import { IUserConfig } from "~~/types/avs.types";
+
 export interface PositionStored {
   tokenId: number;
   tickLower: number;
   tickUpper: number;
   isManaged: boolean;
+
+  userConfig?: IUserConfig;
 }
 
 export const LocalStorageKeys = {

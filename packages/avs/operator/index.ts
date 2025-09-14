@@ -1,10 +1,15 @@
 import { ethers, NonceManager } from "ethers";
 import * as dotenv from "dotenv";
-import { UserConfig } from "./types";
+import { Task, UserConfig } from "./types";
 import * as fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
-import { saveConfig } from "./storage";
+import {
+  saveConfig,
+  getPendingEligible,
+  markPending,
+  clearPending,
+} from "./storage";
 import { redis } from "./Redis";
 dotenv.config();
 
@@ -70,42 +75,13 @@ const rangeExitManagerServiceABI = JSON.parse(
   )
 );
 
-// Minimal ABI for LPRebalanceHook we need: event + withdrawLiquidity
-const HOOK_ABI = [
-  {
-    type: "event",
-    name: "WithdrawNeeded",
-    inputs: [
-      { name: "lastTick", type: "int24", indexed: true },
-      { name: "currency0", type: "address" },
-      { name: "currency1", type: "address" },
-      { name: "tickSpacing", type: "int24" },
-      { name: "fee", type: "uint24" },
-    ],
-    anonymous: false,
-  },
-  {
-    type: "function",
-    name: "withdrawLiquidity",
-    stateMutability: "nonpayable",
-    inputs: [
-      {
-        name: "key",
-        type: "tuple",
-        components: [
-          { name: "currency0", type: "address" },
-          { name: "currency1", type: "address" },
-          { name: "fee", type: "uint24" },
-          { name: "tickSpacing", type: "int24" },
-          { name: "hooks", type: "address" },
-        ],
-      },
-      { name: "posManagerAddress", type: "address" },
-      { name: "lastTick", type: "int24" },
-    ],
-    outputs: [],
-  },
-];
+const hookAbi = JSON.parse(
+  fs.readFileSync(
+    path.resolve(__dirname, "./abis/LPRebalanceHook.abi.json"),
+    "utf8"
+  )
+);
+
 const avsDirectoryABI = JSON.parse(
   fs.readFileSync(path.resolve(__dirname, "./abis/IAVSDirectory.json"), "utf8")
 );
@@ -143,34 +119,40 @@ if (!positionManagerAddress) {
     "POSITION_MANAGER_ADDRESS not found in environment variables"
   );
 }
-const hook = new ethers.Contract(hookAddress, HOOK_ABI, wallet);
+const hook = new ethers.Contract(hookAddress, hookAbi, wallet);
 
-const submitWithdrawLiquidity = async (
-  lastTick: number | bigint,
-  currency0: string,
-  currency1: string,
-  fee: number | bigint,
-  tickSpacing: number | bigint
+const discoverValidPositions = async (
+  minTick: number | string,
+  maxTick: number | string
 ) => {
-  const key = {
-    currency0,
-    currency1,
-    fee,
-    tickSpacing,
-    hooks: hookAddress,
-  };
+  const cfgIds = await redis.zrangebyscore("cfgs:thresholds", minTick, maxTick);
+  console.log("Valid position cfg ids:", cfgIds);
+  return cfgIds;
+};
 
-  console.log("Submitting withdrawLiquidity:", {
-    key,
-    lastTick: Number(lastTick),
-  });
-  const tx = await hook.withdrawLiquidity(
-    key,
-    positionManagerAddress,
-    lastTick
-  );
-  const receipt = await tx.wait();
-  console.log("withdrawLiquidity confirmed in", receipt.hash);
+/**
+ * 
+ @notice Determine search bounds for tick thresholds between lastTick and currentTick.
+ @notice Rules:
+ * - If price moved up (current > last): search [lastTick, currentTick)
+ * - If price moved down (current < last): search (currentTick, lastTick]
+ * - If unchanged: return empty range
+ */
+const computeThresholdBounds = (
+  currentTick: number,
+  lastTick: number
+): { min: string | number; max: string | number; empty: boolean } => {
+  if (currentTick === lastTick) {
+    return { min: 0, max: 0, empty: true };
+  }
+
+  if (currentTick > lastTick) {
+    // [last, current)
+    return { min: lastTick, max: `(${currentTick}`, empty: false };
+  }
+
+  // (current, last]
+  return { min: `(${currentTick}`, max: lastTick, empty: false };
 };
 
 const registerOperator = async () => {
@@ -257,6 +239,31 @@ const registerOperator = async () => {
   }
 };
 
+const signAndRespondToTask = async (
+  task: Task,
+  taskIndex: number,
+  cfgIds: string[]
+) => {
+  const message = `Hello, ${task.lastTick}`;
+  const messageHash = ethers.solidityPackedKeccak256(["string"], [message]);
+  const messageBytes = ethers.getBytes(messageHash);
+  const signature = await wallet.signMessage(messageBytes);
+  const signatures = [signature];
+
+  const operators = [await wallet.getAddress()];
+  const signedTask = ethers.AbiCoder.defaultAbiCoder().encode(
+    ["address[]", "bytes[]", "uint32"],
+    [operators, signatures, task.createdBlock]
+  );
+
+  rangeExitManagerService.withdrawLiquidity(
+    task,
+    taskIndex,
+    cfgIds,
+    signedTask
+  );
+};
+
 // Flow: price change on Uniswap
 // 1) listen to hook WithdrawNeeded
 // 2) determine valid positions via database query
@@ -265,32 +272,46 @@ const monitorNewTasks = async () => {
   if (!hook) throw new Error("No hook contract instance");
   if (!rangeExitManagerService)
     throw new Error("No rangeExitManagerService contract instance");
-  hook.on(
+
+  rangeExitManagerService.on(
     "WithdrawNeeded",
-    async (lastTick, currency0, currency1, tickSpacing, fee, event) => {
+    async (task, taskIndex, poolKey, lastTick, deadline, poolId) => {
       console.log("WithdrawNeeded received:", {
-        lastTick: Number(lastTick),
-        currency0,
-        currency1,
-        fee: Number(fee),
-        tickSpacing: Number(tickSpacing),
-        blockNumber: event.blockNumber,
-        txHash: event.log.transactionHash,
+        task,
+        taskIndex,
+        poolKey,
+        lastTick,
+        deadline,
+        poolId,
       });
 
-      // TODO: Build pool key compatible with IRangeExitServiceManager.Task
-      // TODO: Query valid positions offchain and prepare UserConfig[]
-      // const positions = await discoverValidPositions(...)
-      // await rangeExitManagerService.modifyPositions(task, positions)
+      const currentTick = await hook["getCurrentTick(bytes32)"](poolId);
+      console.log("currentTick:", currentTick);
+      console.log("lastTick:", lastTick);
+
+      const { min, max, empty } = computeThresholdBounds(
+        Number(currentTick),
+        Number(lastTick)
+      );
+      console.log("min:", min);
+      console.log("max:", max);
+      console.log("empty:", empty);
+      if (empty) {
+        console.log("Tick unchanged; no positions to discover");
+        return;
+      }
+
+      const discovered = await discoverValidPositions(min, max);
+      const pendingEligible = await getPendingEligible(
+        Number(currentTick),
+        Number(lastTick)
+      );
+      const cfgIds = Array.from(
+        new Set([...(discovered || []), ...(pendingEligible || [])])
+      );
 
       try {
-        // await submitWithdrawLiquidity(
-        //   lastTick,
-        //   currency0,
-        //   currency1,
-        //   fee,
-        //   tickSpacing
-        // );
+        signAndRespondToTask(task, taskIndex, cfgIds);
       } catch (e) {
         console.error("withdrawLiquidity failed:", e);
       }
@@ -328,6 +349,14 @@ const monitorNewTasks = async () => {
     async (positionId, posM) => {
       console.log("DelegationCancelled received:", { positionId, posM });
       // todo: remove from Redis
+    }
+  );
+
+  rangeExitManagerService.on(
+    "PositionBurned",
+    async (positionId, owner, config: UserConfig) => {
+      console.log("PositionBurned received:", { positionId, owner, config });
+      // todo: proceed with the logic according to strategy
     }
   );
 

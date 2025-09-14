@@ -27,13 +27,29 @@ export const MyPositions = () => {
   );
 
   const handleConfigurePosition = async (position: PositionStored) => {
-    await configureAction({
-      tickThreshold: -120,
+    if (!pool?.tickSpacing) {
+      throw new Error("Pool tick spacing not found");
+    }
+    // todo: get tickThreshold from form, validate via getLowerUsableTick() on the hook contract
+    const userConfig = await configureAction({
+      tickThreshold: -30,
       positionId: position.tokenId,
       posM: getContractsData(chainId).PositionManager,
+      tickSpacing: pool.tickSpacing,
     });
 
-    updatePosition(MOCK_POOL_ID, position);
+    if (!userConfig) {
+      console.log("User config not found");
+      return;
+    }
+
+    console.log("User config found", userConfig);
+
+    updatePosition(MOCK_POOL_ID, {
+      ...position,
+      userConfig,
+      isManaged: true,
+    });
   };
 
   if (positions.length === 0) {

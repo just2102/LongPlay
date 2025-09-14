@@ -1,7 +1,17 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.2;
 
+import {PoolId} from "v4-core/types/PoolId.sol";
+import {UserConfig} from "../libraries/Config.sol";
+
 interface IRangeExitServiceManager {
+    function HOOK() external view returns (address);
+
+    enum StrategyId {
+        None,
+        Asset0ToAave
+    }
+
     struct PoolKeyCustom {
         /// @notice The lower currency of the pool, sorted numerically
         address currency0;
@@ -24,7 +34,15 @@ interface IRangeExitServiceManager {
     event WithdrawNeeded(PoolKeyCustom indexed poolKey, int24 indexed lastTick, uint256 deadline);
     event TaskResponded(bytes32 indexed taskHash, Task task, address operator);
 
-    function createNewTask(PoolKeyCustom calldata poolKey, int24 lastTick, uint256 deadline)
+    function createNewTask(PoolKeyCustom calldata poolKey, int24 lastTick, uint256 deadline, PoolId poolId)
         external
         returns (bytes32);
+
+    function configurePosition(
+        int24 tickThreshold,
+        StrategyId strategyId,
+        uint256 positionId,
+        address posM,
+        int24 tickSpacing
+    ) external returns (UserConfig memory);
 }

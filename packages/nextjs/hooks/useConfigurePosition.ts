@@ -1,8 +1,8 @@
 import { useChainId } from "./useChainId";
 import { useAccount } from "wagmi";
-import { readContract, writeContract } from "wagmi/actions";
+import { readContract, simulateContract, writeContract } from "wagmi/actions";
 import { wagmiConfig } from "~~/services/web3/wagmiConfig";
-import { StrategyId } from "~~/types/avs.types";
+import { IUserConfig, StrategyId } from "~~/types/avs.types";
 import { Contract, getContractsData } from "~~/utils/scaffold-eth/contract";
 
 export const useConfigurePosition = () => {
@@ -13,11 +13,13 @@ export const useConfigurePosition = () => {
     tickThreshold,
     positionId,
     posM,
+    tickSpacing,
   }: {
     tickThreshold: number;
     positionId: number;
     posM: Contract<"PositionManager">;
-  }) => {
+    tickSpacing: number;
+  }): Promise<IUserConfig | undefined> => {
     if (!address) {
       throw new Error("No address found");
     }
@@ -44,20 +46,24 @@ export const useConfigurePosition = () => {
       } catch (error) {
         console.error(`Error approving position ${positionId} to be spent by the AVS`);
         console.error(error);
+        return undefined;
       }
     }
 
     try {
-      const data = await writeContract(wagmiConfig, {
+      const { request, result } = await simulateContract(wagmiConfig, {
         address: avsContract.address,
         abi: avsContract.abi,
         functionName: "configurePosition",
-        args: [tickThreshold, strategyId, BigInt(positionId), posM.address],
+        args: [tickThreshold, strategyId, BigInt(positionId), posM.address, tickSpacing],
         account: address,
       });
 
-      console.log("Data:", data);
-      return data;
+      await writeContract(wagmiConfig, request);
+      return {
+        ...result,
+        positionId: positionId.toString(),
+      };
     } catch (error) {
       console.error(error);
     }

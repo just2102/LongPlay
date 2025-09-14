@@ -1,4 +1,6 @@
 import { Button } from "../Button";
+import { CardBadge } from "./CardBadge";
+import { PositionConfigInfo } from "./PositionConfigInfo";
 import { Currency } from "@uniswap/sdk-core";
 import { tickToPrice } from "@uniswap/v4-sdk";
 import { PositionStored } from "~~/utils/localStorage";
@@ -71,6 +73,8 @@ export const PositionCard = ({ position, handleConfigurePosition, baseCurrency, 
             )}
           </div>
         </div>
+
+        {position.userConfig && <PositionConfigInfo userConfig={position.userConfig} />}
       </div>
 
       <Button
@@ -84,25 +88,6 @@ export const PositionCard = ({ position, handleConfigurePosition, baseCurrency, 
       >
         Configure
       </Button>
-    </div>
-  );
-};
-
-interface CardBadgeProps {
-  isActive: boolean;
-  labelActive: string;
-  labelInactive: string;
-}
-const CardBadge = ({ isActive, labelActive, labelInactive }: CardBadgeProps) => {
-  return (
-    <div className="flex items-center gap-2">
-      <span
-        className={`px-2 py-1 rounded-full text-xs font-medium ${
-          isActive ? "bg-blue-100 text-blue-700" : "bg-green-100 text-green-700"
-        }`}
-      >
-        {isActive ? labelActive : labelInactive}
-      </span>
     </div>
   );
 };

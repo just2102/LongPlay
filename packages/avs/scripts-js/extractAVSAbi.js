@@ -10,9 +10,13 @@ function extractAVSAbi() {
     throw new Error("Abi not found");
   }
 
-  const savePath = "../avs/abis/RangeExitManagerService.json";
-  fs.writeFileSync(savePath, JSON.stringify(abi, null, 2));
-  console.log("Abi saved to", savePath);
+  const savePath1 = "../avs/abis/RangeExitManagerService.json";
+  fs.writeFileSync(savePath1, JSON.stringify(abi, null, 2));
+  console.log("Abi saved to", savePath1);
+
+  const savePath2 = "../avs/operator/abis/RangeExitManagerService.json";
+  fs.writeFileSync(savePath2, JSON.stringify(abi, null, 2));
+  console.log("Abi saved to", savePath2);
 }
 
 extractAVSAbi();

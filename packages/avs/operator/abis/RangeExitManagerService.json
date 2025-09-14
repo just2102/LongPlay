@@ -37,6 +37,19 @@
   },
   {
     "type": "function",
+    "name": "HOOK",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "address",
+        "internalType": "contract ILPRebalanceHook"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
     "name": "MAX_RESPONSE_INTERVAL_BLOCKS",
     "inputs": [],
     "outputs": [
@@ -152,6 +165,11 @@
         "name": "posM",
         "type": "address",
         "internalType": "address"
+      },
+      {
+        "name": "tickSpacing",
+        "type": "int24",
+        "internalType": "int24"
       }
     ],
     "outputs": [
@@ -287,6 +305,11 @@
         "name": "deadline",
         "type": "uint256",
         "internalType": "uint256"
+      },
+      {
+        "name": "poolId",
+        "type": "bytes32",
+        "internalType": "bytes32"
       }
     ],
     "outputs": [
@@ -443,100 +466,11 @@
         "name": "_rewardsInitiator",
         "type": "address",
         "internalType": "address"
-      }
-    ],
-    "outputs": [],
-    "stateMutability": "nonpayable"
-  },
-  {
-    "type": "function",
-    "name": "modifyPositions",
-    "inputs": [
-      {
-        "name": "task",
-        "type": "tuple",
-        "internalType": "struct IRangeExitServiceManager.Task",
-        "components": [
-          {
-            "name": "poolKey",
-            "type": "tuple",
-            "internalType": "struct IRangeExitServiceManager.PoolKeyCustom",
-            "components": [
-              {
-                "name": "currency0",
-                "type": "address",
-                "internalType": "address"
-              },
-              {
-                "name": "currency1",
-                "type": "address",
-                "internalType": "address"
-              },
-              {
-                "name": "fee",
-                "type": "uint24",
-                "internalType": "uint24"
-              },
-              {
-                "name": "tickSpacing",
-                "type": "int24",
-                "internalType": "int24"
-              },
-              {
-                "name": "hookAddress",
-                "type": "address",
-                "internalType": "address"
-              }
-            ]
-          },
-          {
-            "name": "lastTick",
-            "type": "int24",
-            "internalType": "int24"
-          },
-          {
-            "name": "deadline",
-            "type": "uint256",
-            "internalType": "uint256"
-          },
-          {
-            "name": "createdBlock",
-            "type": "uint32",
-            "internalType": "uint32"
-          }
-        ]
       },
       {
-        "name": "positions",
-        "type": "tuple[]",
-        "internalType": "struct IRangeExitServiceManager.UserConfig[]",
-        "components": [
-          {
-            "name": "tickThreshold",
-            "type": "int24",
-            "internalType": "int24"
-          },
-          {
-            "name": "strategyId",
-            "type": "uint8",
-            "internalType": "uint8"
-          },
-          {
-            "name": "owner",
-            "type": "address",
-            "internalType": "address"
-          },
-          {
-            "name": "positionId",
-            "type": "uint256",
-            "internalType": "uint256"
-          },
-          {
-            "name": "posM",
-            "type": "address",
-            "internalType": "address"
-          }
-        ]
+        "name": "_hookAddress",
+        "type": "address",
+        "internalType": "address"
       }
     ],
     "outputs": [],
@@ -777,6 +711,19 @@
   },
   {
     "type": "function",
+    "name": "setHookAddress",
+    "inputs": [
+      {
+        "name": "_hookAddress",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
     "name": "setRewardsInitiator",
     "inputs": [
       {
@@ -969,6 +916,151 @@
         "name": "_metadataURI",
         "type": "string",
         "internalType": "string"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "validatePositionForWithdraw",
+    "inputs": [
+      {
+        "name": "userConfig",
+        "type": "tuple",
+        "internalType": "struct IRangeExitServiceManager.UserConfig",
+        "components": [
+          {
+            "name": "tickThreshold",
+            "type": "int24",
+            "internalType": "int24"
+          },
+          {
+            "name": "strategyId",
+            "type": "uint8",
+            "internalType": "uint8"
+          },
+          {
+            "name": "owner",
+            "type": "address",
+            "internalType": "address"
+          },
+          {
+            "name": "positionId",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "posM",
+            "type": "address",
+            "internalType": "address"
+          }
+        ]
+      },
+      {
+        "name": "posM",
+        "type": "address",
+        "internalType": "contract IPositionManagerMinimal"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "bool",
+        "internalType": "bool"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "withdrawLiquidity",
+    "inputs": [
+      {
+        "name": "task",
+        "type": "tuple",
+        "internalType": "struct IRangeExitServiceManager.Task",
+        "components": [
+          {
+            "name": "poolKey",
+            "type": "tuple",
+            "internalType": "struct IRangeExitServiceManager.PoolKeyCustom",
+            "components": [
+              {
+                "name": "currency0",
+                "type": "address",
+                "internalType": "address"
+              },
+              {
+                "name": "currency1",
+                "type": "address",
+                "internalType": "address"
+              },
+              {
+                "name": "fee",
+                "type": "uint24",
+                "internalType": "uint24"
+              },
+              {
+                "name": "tickSpacing",
+                "type": "int24",
+                "internalType": "int24"
+              },
+              {
+                "name": "hookAddress",
+                "type": "address",
+                "internalType": "address"
+              }
+            ]
+          },
+          {
+            "name": "lastTick",
+            "type": "int24",
+            "internalType": "int24"
+          },
+          {
+            "name": "deadline",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "createdBlock",
+            "type": "uint32",
+            "internalType": "uint32"
+          }
+        ]
+      },
+      {
+        "name": "configs",
+        "type": "tuple[]",
+        "internalType": "struct IRangeExitServiceManager.UserConfig[]",
+        "components": [
+          {
+            "name": "tickThreshold",
+            "type": "int24",
+            "internalType": "int24"
+          },
+          {
+            "name": "strategyId",
+            "type": "uint8",
+            "internalType": "uint8"
+          },
+          {
+            "name": "owner",
+            "type": "address",
+            "internalType": "address"
+          },
+          {
+            "name": "positionId",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "posM",
+            "type": "address",
+            "internalType": "address"
+          }
+        ]
       }
     ],
     "outputs": [],
@@ -1268,6 +1360,12 @@
         "type": "uint256",
         "indexed": false,
         "internalType": "uint256"
+      },
+      {
+        "name": "poolId",
+        "type": "bytes32",
+        "indexed": false,
+        "internalType": "bytes32"
       }
     ],
     "anonymous": false
@@ -1291,5 +1389,21 @@
     "type": "error",
     "name": "OnlyStakeRegistry",
     "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "UserNotPositionOwner",
+    "inputs": [
+      {
+        "name": "positionOwner",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "caller",
+        "type": "address",
+        "internalType": "address"
+      }
+    ]
   }
 ]

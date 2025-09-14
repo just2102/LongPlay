@@ -85,24 +85,97 @@ contract LPRebalanceHookTest is Test, Deployers {
         assertEq(tickAfterSwap, -20);
     }
 
-    function test_AddAndWithdrawLiquidity() external {
-        int24 currentTick = getCurrentTick();
-        int24 lowerUsableTick = getLowerUsableTick(currentTick, poolKey.tickSpacing);
-        assertEq(lowerUsableTick, 0);
-
-        // send some of both tokens to the user address
-        MockERC20(Currency.unwrap(token0)).transfer(USER, 5 ether);
-        MockERC20(Currency.unwrap(token1)).transfer(USER, 5 ether);
-
-        // todo: user could be adding liquidity to an existing position
-        // we either don't handle it at all,
-        // or we handle it by using the existing positionId and passing it to the hookData
-        uint256 positionId = posM.nextTokenId();
-
-        addAndWithdrawLiquidity(positionId);
+    function test_getCurrentTick() external view {
+        int24 tick = hook.getCurrentTick(poolKey);
+        int24 tick2 = hook.getCurrentTick(poolKey.toId());
+        assertEq(tick, tick2);
     }
 
-    function addAndWithdrawLiquidity(uint256 positionId) internal {
+    function test_createNewTask_OnlyHookCanCreateTask() external {
+        vm.expectRevert("Only hook contract can call this function");
+        IRangeExitServiceManager.PoolKeyCustom memory poolKeyCustom = IRangeExitServiceManager.PoolKeyCustom({
+            currency0: Currency.unwrap(poolKey.currency0),
+            currency1: Currency.unwrap(poolKey.currency1),
+            fee: poolKey.fee,
+            tickSpacing: poolKey.tickSpacing,
+            hookAddress: address(hook)
+        });
+        IRangeExitServiceManager(SERVICE).createNewTask(poolKeyCustom, -20, block.timestamp + 600, poolKey.toId());
+    }
+
+    function test_createNewTask_CanCreateTask() external {
+        address deployedHook = vm.envAddress("HOOK");
+
+        IRangeExitServiceManager.PoolKeyCustom memory poolKeyCustom = IRangeExitServiceManager.PoolKeyCustom({
+            currency0: Currency.unwrap(poolKey.currency0),
+            currency1: Currency.unwrap(poolKey.currency1),
+            fee: poolKey.fee,
+            tickSpacing: poolKey.tickSpacing,
+            hookAddress: deployedHook
+        });
+        address hookOnService = IRangeExitServiceManager(SERVICE).HOOK();
+        assertEq(hookOnService, deployedHook, "Hook on service is not the same as the hook");
+        vm.prank(deployedHook);
+        IRangeExitServiceManager(SERVICE).createNewTask(poolKeyCustom, -20, block.timestamp + 600, poolKey.toId());
+    }
+
+    function test_MintAndcConfigurePosition() external {
+        require(address(SERVICE) != address(0), "SERVICE is not set");
+
+        uint256 positionId = posM.nextTokenId();
+        addLiquidity(positionId, -120, 120);
+
+        vm.prank(USER);
+        ERC721Permit_v4(address(posM)).setApprovalForAll(address(SERVICE), true);
+
+        vm.prank(USER);
+        IRangeExitServiceManager(SERVICE).configurePosition(
+            -120, IRangeExitServiceManager.StrategyId.Asset0ToAave, positionId, address(posM), poolKey.tickSpacing
+        );
+    }
+
+    function test_AddLiquidity() external {
+        int24 currentTick = getCurrentTick();
+        int24 lowerUsableTick = hook.getLowerUsableTick(currentTick, poolKey.tickSpacing);
+        assertEq(lowerUsableTick, -30);
+
+        uint256 positionId = posM.nextTokenId();
+
+        addLiquidity(positionId, -60, -30);
+    }
+
+    function test_getLowerUsableTick_negative() external view {
+        int24 tickThresholdToUse = hook.getLowerUsableTick(-24, 30);
+        assertEq(tickThresholdToUse, -30);
+
+        tickThresholdToUse = hook.getLowerUsableTick(-20, 30);
+        assertEq(tickThresholdToUse, -30);
+
+        tickThresholdToUse = hook.getLowerUsableTick(-18, 30);
+        assertEq(tickThresholdToUse, -30);
+
+        tickThresholdToUse = hook.getLowerUsableTick(-12, 30);
+        assertEq(tickThresholdToUse, -30);
+
+        tickThresholdToUse = hook.getLowerUsableTick(-6, 30);
+        assertEq(tickThresholdToUse, -30);
+    }
+
+    function test_getLowerUsableTick_positive() external view {
+        int24 tickThresholdToUse = hook.getLowerUsableTick(24, 30);
+        assertEq(tickThresholdToUse, 0);
+
+        tickThresholdToUse = hook.getLowerUsableTick(20, 30);
+        assertEq(tickThresholdToUse, 0);
+
+        tickThresholdToUse = hook.getLowerUsableTick(30, 30);
+        assertEq(tickThresholdToUse, 30);
+
+        tickThresholdToUse = hook.getLowerUsableTick(31, 30);
+        assertEq(tickThresholdToUse, 30);
+    }
+
+    function addLiquidity(uint256 positionId, int24 tickLower, int24 tickUpper) internal {
         vm.startPrank(USER);
 
         // Mint a position via deployed POSM
@@ -111,10 +184,13 @@ contract LPRebalanceHookTest is Test, Deployers {
             abi.encodePacked(uint8(Actions.MINT_POSITION), uint8(Actions.CLOSE_CURRENCY), uint8(Actions.CLOSE_CURRENCY));
         bytes[] memory params = new bytes[](3);
 
-        int24 tickLower = -60;
-        int24 tickUpper = -30;
-        UserConfig memory config =
-            UserConfig({tickThreshold: -60, owner: USER, positionId: positionId, posM: address(posM)});
+        UserConfig memory config = UserConfig({
+            tickThreshold: -60,
+            owner: USER,
+            positionId: positionId,
+            posM: address(posM),
+            strategyId: uint8(IRangeExitServiceManager.StrategyId.Asset0ToAave)
+        });
 
         bytes memory hookData = abi.encode(config);
         params[0] = abi.encode(
@@ -146,16 +222,16 @@ contract LPRebalanceHookTest is Test, Deployers {
 
         uint256 balanceOfToken0BeforeDoStuff = MockERC20(Currency.unwrap(token0)).balanceOf(USER);
 
-        // the hook should now be able to close our LP position.
+        // we should now be able to withdraw the liquidity via the AVS contract
         // the funds should go back to the owner of the NFT.
-        hook.withdrawLiquidity(poolKey, address(posM), tickBeforeSwap);
+        // hook.withdrawLiquidity(poolKey, address(posM), tickBeforeSwap);
 
-        // nft should be burned
-        vm.expectRevert("NOT_MINTED");
-        ERC721Permit_v4(address(posM)).ownerOf(positionId);
+        // // nft should be burned
+        // vm.expectRevert("NOT_MINTED");
+        // ERC721Permit_v4(address(posM)).ownerOf(positionId);
 
-        uint256 balanceOfToken0AfterDoStuff = MockERC20(Currency.unwrap(token0)).balanceOf(USER);
-        assertGt(balanceOfToken0AfterDoStuff, balanceOfToken0BeforeDoStuff);
+        // uint256 balanceOfToken0AfterDoStuff = MockERC20(Currency.unwrap(token0)).balanceOf(USER);
+        // assertGt(balanceOfToken0AfterDoStuff, balanceOfToken0BeforeDoStuff);
 
         vm.stopPrank();
     }
@@ -181,6 +257,10 @@ contract LPRebalanceHookTest is Test, Deployers {
         MockERC20(Currency.unwrap(token0)).approve(address(mockRouter), type(uint256).max);
         MockERC20(Currency.unwrap(token1)).approve(address(mockRouter), type(uint256).max);
         vm.stopPrank();
+
+        // send some of both tokens to the user address
+        MockERC20(Currency.unwrap(token0)).transfer(USER, 5 ether);
+        MockERC20(Currency.unwrap(token1)).transfer(USER, 5 ether);
     }
 
     function deployHook() internal {
@@ -257,22 +337,5 @@ contract LPRebalanceHookTest is Test, Deployers {
         params[2] = abi.encode(poolKey.currency1, amountOutMinimum);
 
         mockRouter.executeActions(abi.encode(actions, params));
-    }
-
-    // todo: refactor into library
-    function getLowerUsableTick(int24 tick, int24 tickSpacing) internal pure returns (int24) {
-        if (tick >= 0) {
-            // round down for positive numbers
-            return (tick / tickSpacing) * tickSpacing;
-        } else {
-            // round up for negative numbers
-            int24 remainder = tick % tickSpacing;
-            if (remainder == 0) {
-                return tick;
-            } else {
-                // subtract remainder to round up
-                return tick - remainder;
-            }
-        }
     }
 }

@@ -87,6 +87,7 @@ export const useSwapMock = () => {
           console.log("Erc20 approval tx:", tx1);
         } catch (error) {
           console.error(error);
+          return;
         }
       }
 
@@ -109,6 +110,7 @@ export const useSwapMock = () => {
           console.log("Permit2 approval tx:", tx2);
         } catch (error) {
           console.error(error);
+          return;
         }
       }
     }

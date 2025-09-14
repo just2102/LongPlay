@@ -822,6 +822,52 @@ export const hookAbi = [
   },
   {
     type: "function",
+    name: "getCurrentTick",
+    inputs: [
+      {
+        name: "key",
+        type: "tuple",
+        internalType: "struct PoolKey",
+        components: [
+          {
+            name: "currency0",
+            type: "address",
+            internalType: "Currency",
+          },
+          {
+            name: "currency1",
+            type: "address",
+            internalType: "Currency",
+          },
+          {
+            name: "fee",
+            type: "uint24",
+            internalType: "uint24",
+          },
+          {
+            name: "tickSpacing",
+            type: "int24",
+            internalType: "int24",
+          },
+          {
+            name: "hooks",
+            type: "address",
+            internalType: "contract IHooks",
+          },
+        ],
+      },
+    ],
+    outputs: [
+      {
+        name: "",
+        type: "int24",
+        internalType: "int24",
+      },
+    ],
+    stateMutability: "view",
+  },
+  {
+    type: "function",
     name: "getHookPermissions",
     inputs: [],
     outputs: [
@@ -1072,56 +1118,6 @@ export const hookAbi = [
       },
     ],
     stateMutability: "view",
-  },
-  {
-    type: "function",
-    name: "withdrawLiquidity",
-    inputs: [
-      {
-        name: "key",
-        type: "tuple",
-        internalType: "struct PoolKey",
-        components: [
-          {
-            name: "currency0",
-            type: "address",
-            internalType: "Currency",
-          },
-          {
-            name: "currency1",
-            type: "address",
-            internalType: "Currency",
-          },
-          {
-            name: "fee",
-            type: "uint24",
-            internalType: "uint24",
-          },
-          {
-            name: "tickSpacing",
-            type: "int24",
-            internalType: "int24",
-          },
-          {
-            name: "hooks",
-            type: "address",
-            internalType: "contract IHooks",
-          },
-        ],
-      },
-      {
-        name: "posManagerAddress",
-        type: "address",
-        internalType: "address",
-      },
-      {
-        name: "lastTick",
-        type: "int24",
-        internalType: "int24",
-      },
-    ],
-    outputs: [],
-    stateMutability: "nonpayable",
   },
   {
     type: "event",

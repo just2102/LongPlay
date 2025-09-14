@@ -107,24 +107,24 @@ contract LPRebalanceHook is BaseHook, ReentrancyGuard, Ownable {
         return (this.afterAddLiquidity.selector, BalanceDeltaLibrary.ZERO_DELTA);
     }
 
-    function _afterSwap(address sender, PoolKey calldata key, SwapParams calldata params, BalanceDelta, bytes calldata)
+    function _afterSwap(address, PoolKey calldata key, SwapParams calldata, BalanceDelta, bytes calldata)
         internal
         override
         returns (bytes4, int128)
     {
         (, int24 currentTick,,) = poolManager.getSlot0(key.toId());
         int24 lastTick = lastTicks[key.toId()];
-        int24 currentTickToUse = getLowerUsableTick(currentTick, key.tickSpacing);
+        lastTicks[key.toId()] = currentTick;
 
-        if (currentTickToUse > lastTick) {
-            lastTicks[key.toId()] = currentTick;
+        if (currentTick > lastTick) {
             return (this.afterSwap.selector, 0);
         }
 
-        if (currentTickToUse < lastTick) {
+        if (currentTick < lastTick) {
             console.log("Service address: ", address(service));
             if (address(service) != address(0)) {
-                uint256 deadline = block.timestamp + 60;
+                // todo: change deadline to a smaller value in production (e.g., 60)
+                uint256 deadline = block.timestamp + 600;
                 IRangeExitServiceManager.PoolKeyCustom memory poolKeyCustom = IRangeExitServiceManager.PoolKeyCustom({
                     currency0: Currency.unwrap(key.currency0),
                     currency1: Currency.unwrap(key.currency1),
@@ -132,7 +132,8 @@ contract LPRebalanceHook is BaseHook, ReentrancyGuard, Ownable {
                     tickSpacing: key.tickSpacing,
                     hookAddress: address(this)
                 });
-                bytes32 taskHash = service.createNewTask(poolKeyCustom, lastTick, deadline);
+                PoolId poolId = key.toId();
+                bytes32 taskHash = service.createNewTask(poolKeyCustom, lastTick, deadline, poolId);
                 console.log("Task successfully sent to service. TaskHash:");
                 console.logBytes32(taskHash);
             }
@@ -141,73 +142,28 @@ contract LPRebalanceHook is BaseHook, ReentrancyGuard, Ownable {
         return (this.afterSwap.selector, 0);
     }
 
-    // todo: move this function to the AVS contract
-    function withdrawLiquidity(PoolKey calldata key, address posManagerAddress, int24 lastTick) external nonReentrant {
-        IPositionManager posM = IPositionManager(posManagerAddress);
-        bytes memory actions = abi.encodePacked(uint8(Actions.BURN_POSITION), uint8(Actions.TAKE_PAIR));
-
-        bytes[] memory params = new bytes[](2);
-
-        (, int24 currentTick,,) = poolManager.getSlot0(key.toId());
-        int24 currentTickToUse = getLowerUsableTick(currentTick, key.tickSpacing);
-        // todo: to avoid onchain iterations store data in an AVS database
-        while (currentTickToUse < lastTick) {
-            uint256[] memory positionIds = positions[currentTickToUse];
-            Currency currency0 = key.currency0;
-            Currency currency1 = key.currency1;
-            for (uint256 i = 0; i < positionIds.length; i++) {
-                uint256 positionId = positionIds[i];
-                if (positionId != 0) {
-                    if (isWithdrawn[positionId]) {
-                        revert PositionAlreadyWithdrawn();
-                    }
-
-                    UserConfig memory userConfig = userConfigs[positionId];
-
-                    // todo: add min amounts
-                    uint128 amount0Min = 0;
-                    uint128 amount1Min = 0;
-                    bytes memory hookData = bytes("");
-                    uint256 deadline = block.timestamp + 60;
-
-                    params[0] = abi.encode(positionId, amount0Min, amount1Min, hookData);
-                    params[1] = abi.encode(currency0, currency1, userConfig.owner);
-
-                    console.log("Burning position id: ", positionId);
-                    console.log("Recipient: ", userConfig.owner);
-
-                    isWithdrawn[positionId] = true;
-                    posM.modifyLiquidities(abi.encode(actions, params), deadline);
-                    console.log("Modified liquidities successfully");
-                }
-            }
-            currentTickToUse += key.tickSpacing;
-        }
-    }
-
     // todo: approve to AVS contract
     function approveLpTokens(address positionManager, uint256 tokenId) external {
         ERC721Permit_v4(positionManager).approve(address(this), tokenId);
     }
 
-    function getLowerUsableTick(int24 tick, int24 tickSpacing) internal pure returns (int24) {
-        // todo (extra): optimize gas costs caused by withdrawing too often
-        // example:
-        // tickSpacing = 30
-        // this function would return -180, -90, 0, 90, 180
+    function getLowerUsableTick(int24 tick, int24 tickSpacing) public pure returns (int24) {
+        int24 intervals = tick / tickSpacing;
 
-        if (tick >= 0) {
-            // round down for positive numbers
-            return (tick / tickSpacing) * tickSpacing;
-        } else {
-            // round up for negative numbers
-            int24 remainder = tick % tickSpacing;
-            if (remainder == 0) {
-                return tick;
-            } else {
-                // subtract remainder to round up
-                return tick - remainder;
-            }
+        if (tick < 0 && tick % tickSpacing != 0) {
+            intervals--;
         }
+
+        return intervals * tickSpacing;
+    }
+
+    function getCurrentTick(PoolKey calldata key) external view returns (int24) {
+        (, int24 currentTick,,) = poolManager.getSlot0(key.toId());
+        return currentTick;
+    }
+
+    function getCurrentTick(PoolId poolId) external view returns (int24) {
+        (, int24 currentTick,,) = poolManager.getSlot0(poolId);
+        return currentTick;
     }
 }

@@ -15,6 +15,8 @@ import {IECDSAStakeRegistryTypes} from "eigenlayer-middleware/src/interfaces/IEC
 import {UpgradeableProxyLib} from "./UpgradeableProxyLib.sol";
 import {CoreDeployLib, CoreDeploymentParsingLib} from "./CoreDeploymentParsingLib.sol";
 import {Strings} from "@openzeppelin/contracts/utils/Strings.sol";
+import {ILPRebalanceHook} from "../src/interfaces/ILPRebalanceHook.sol";
+import {IRangeExitServiceManager} from "../src/interfaces/IRangeExitServiceManager.sol";
 
 library HelloWorldDeploymentLib {
     using stdJson for *;
@@ -87,7 +89,12 @@ library HelloWorldDeploymentLib {
             )
         );
 
-        bytes memory upgradeCall = abi.encodeCall(RangeExitManagerService.initialize, (owner, rewardsInitiator));
+        address hook = vm.envAddress("HOOK_ADDRESS");
+        if (hook == address(0)) {
+            revert("HOOK_ADDRESS not found in environment variables");
+        }
+
+        bytes memory upgradeCall = abi.encodeCall(RangeExitManagerService.initialize, (owner, rewardsInitiator, hook));
 
         UpgradeableProxyLib.upgradeAndCall(helloWorldServiceManager, helloWorldServiceManagerImpl, upgradeCall);
     }
