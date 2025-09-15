@@ -18,6 +18,7 @@ contract RangeExitManagerService is ECDSAServiceManagerBase, IRangeExitServiceMa
     mapping(uint128 => bytes32) public allTaskHashes;
     mapping(address operator => mapping(bytes32 => bytes)) public allTaskResponses;
     mapping(bytes32 => bool) public taskWasResponded;
+    mapping(uint256 => bool) public isPositionManaged;
 
     uint128 public latestTaskNum;
 
@@ -168,39 +169,41 @@ contract RangeExitManagerService is ECDSAServiceManagerBase, IRangeExitServiceMa
         address currency0 = task.poolKey.currency0;
         address currency1 = task.poolKey.currency1;
 
-        for (uint256 i = 0; i < configs.length; i++) {
-            UserConfig memory userConfig = configs[i];
+        if (configs.length > 0) {
+            for (uint256 i = 0; i < configs.length; i++) {
+                UserConfig memory userConfig = configs[i];
 
-            IPositionManagerMinimal posM = IPositionManagerMinimal(userConfig.posM);
-            uint256 positionId = userConfig.positionId;
-            address owner = userConfig.owner;
+                IPositionManagerMinimal posM = IPositionManagerMinimal(userConfig.posM);
+                uint256 positionId = userConfig.positionId;
+                address owner = userConfig.owner;
 
-            bool isValidPosition = validatePositionForWithdraw(userConfig, posM);
-            if (!isValidPosition) {
-                console.log("Invalid position, continue");
-                continue;
+                bool isValidPosition = validatePositionForWithdraw(userConfig, posM);
+                if (!isValidPosition) {
+                    console.log("Invalid position, continue");
+                    continue;
+                }
+
+                console.log("Position is valid, proceeding according to strategy", positionId);
+
+                // todo: add min amounts
+                uint128 amount0Min = 0;
+                uint128 amount1Min = 0;
+                bytes memory hookData = bytes("");
+                uint256 deadline = block.timestamp + 60;
+
+                bytes memory actions = abi.encodePacked(uint8(Actions.BURN_POSITION), uint8(Actions.TAKE_PAIR));
+                bytes[] memory params = new bytes[](2);
+                params[0] = abi.encode(positionId, amount0Min, amount1Min, hookData);
+                params[1] = abi.encode(currency0, currency1, owner);
+
+                console.log("Burning position id: ", positionId);
+                console.log("Recipient: ", owner);
+
+                // commented out for tests
+                // posM.modifyLiquidities(abi.encode(actions, params), deadline);
+                emit PositionBurned(positionId, owner, userConfig);
+                console.log("Position burned successfully", positionId);
             }
-
-            console.log("Position is valid, proceeding according to strategy", positionId);
-
-            // todo: add min amounts
-            uint128 amount0Min = 0;
-            uint128 amount1Min = 0;
-            bytes memory hookData = bytes("");
-            uint256 deadline = block.timestamp + 60;
-
-            bytes memory actions = abi.encodePacked(uint8(Actions.BURN_POSITION), uint8(Actions.TAKE_PAIR));
-            bytes[] memory params = new bytes[](2);
-            params[0] = abi.encode(positionId, amount0Min, amount1Min, hookData);
-            params[1] = abi.encode(currency0, currency1, owner);
-
-            console.log("Burning position id: ", positionId);
-            console.log("Recipient: ", owner);
-
-            // commented out for tests
-            // posM.modifyLiquidities(abi.encode(actions, params), deadline);
-            emit PositionBurned(positionId, owner, userConfig);
-            console.log("Position burned successfully", positionId);
         }
 
         taskWasResponded[thash] = true;
@@ -244,13 +247,14 @@ contract RangeExitManagerService is ECDSAServiceManagerBase, IRangeExitServiceMa
     }
 
     function cancelDelegation(uint256 positionId, address posM) external {
-        // Scenario: user cancels approval/delegation
-        // On-chain expected actions:
-        //  - verify caller is owner of the position
-        //  - opt-out of position management
         address owner = IPositionManagerMinimal(posM).ownerOf(positionId);
         require(owner == msg.sender, "Only position owner");
         emit DelegationCancelled(owner, positionId, 0);
+        isPositionManaged[positionId] = false;
+    }
+
+    function setPositionManaged(uint256 positionId, bool managed) external onlyOperator {
+        isPositionManaged[positionId] = managed;
     }
 
     // function _applyStrategy(Task memory task, UserConfig memory config) internal {

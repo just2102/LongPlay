@@ -1,6 +1,6 @@
 import { ethers, NonceManager } from "ethers";
 import * as dotenv from "dotenv";
-import { Task, UserConfig } from "./types";
+import { StrategyId, Task, UserConfig } from "./types";
 import * as fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
@@ -9,8 +9,25 @@ import {
   getPendingEligible,
   markPending,
   clearPending,
+  getConfigsByIds,
+  removeConfig,
 } from "./storage";
 import { redis } from "./Redis";
+import {
+  Address,
+  createNonceManager,
+  createWalletClient,
+  http,
+  NonceManager as NonceManagerViem,
+} from "viem";
+import { privateKeyToAccount } from "viem/accounts";
+import {
+  waitForTransactionReceipt,
+  writeContract,
+  readContract,
+} from "viem/actions";
+import { hardhat } from "viem/chains";
+import { jsonRpc } from "viem/nonce";
 dotenv.config();
 
 const __filename = fileURLToPath(import.meta.url);
@@ -21,13 +38,35 @@ if (!Object.keys(process.env).length) {
   throw new Error("process.env object is empty");
 }
 
+if (!process.env.RPC_URL) {
+  throw new Error("RPC_URL not found in environment variables");
+}
+if (!process.env.PRIVATE_KEY) {
+  throw new Error("PRIVATE_KEY not found in environment variables");
+}
+
 // Setup env variables
+// todo: replace ethers with viem
 const provider = new ethers.JsonRpcProvider(process.env.RPC_URL);
 const walletUnmanaged = new ethers.Wallet(process.env.PRIVATE_KEY!, provider);
 const wallet = new NonceManager(walletUnmanaged);
 
-/// TODO: Hack
-let chainId = 31337;
+const nonceManager: NonceManagerViem = createNonceManager({
+  source: jsonRpc(),
+});
+const account = privateKeyToAccount(process.env.PRIVATE_KEY! as Address, {
+  nonceManager,
+});
+const chain = hardhat;
+
+const rpcUrl = process.env.RPC_URL! as string;
+const walletClient = createWalletClient({
+  account: account,
+  transport: http(rpcUrl),
+  chain: chain,
+});
+
+let chainId = hardhat.id;
 
 // todo: deploy this contract
 const avsDeploymentData = JSON.parse(
@@ -41,6 +80,7 @@ if (!avsDeploymentData.addresses.stakeRegistry) {
 }
 
 // Load core deployment data
+// todo: add type-safety for ABIs
 const coreDeploymentData = JSON.parse(
   fs.readFileSync(
     path.resolve(__dirname, `../deployments/core/${chainId}.json`),
@@ -239,13 +279,30 @@ const registerOperator = async () => {
   }
 };
 
+function normalizeTaskFromEvent(task: any): Task {
+  const key = task.poolKey ?? task[0];
+  const poolKey = {
+    currency0: key.currency0 ?? key[0],
+    currency1: key.currency1 ?? key[1],
+    fee: BigInt(key.fee ?? key[2]),
+    tickSpacing: BigInt(key.tickSpacing ?? key[3]),
+    hookAddress: key.hookAddress ?? key[4],
+  };
+  const lastTick = BigInt(task.lastTick ?? task[1]);
+  const deadline = BigInt(task.deadline ?? task[2]);
+  const createdBlock = BigInt(task.createdBlock ?? task[3]);
+  return { poolKey, lastTick, deadline, createdBlock };
+}
+
 const signAndRespondToTask = async (
   task: Task,
-  taskIndex: number,
-  cfgIds: string[]
+  taskIndex: bigint | number,
+  configs: UserConfig[]
 ) => {
-  const message = `Hello, ${task.lastTick}`;
-  const messageHash = ethers.solidityPackedKeccak256(["string"], [message]);
+  const messageHash = ethers.solidityPackedKeccak256(
+    ["string", "int24"],
+    ["Hello, ", task.lastTick]
+  );
   const messageBytes = ethers.getBytes(messageHash);
   const signature = await wallet.signMessage(messageBytes);
   const signatures = [signature];
@@ -256,12 +313,14 @@ const signAndRespondToTask = async (
     [operators, signatures, task.createdBlock]
   );
 
-  rangeExitManagerService.withdrawLiquidity(
-    task,
-    taskIndex,
-    cfgIds,
-    signedTask
-  );
+  writeContract(walletClient, {
+    address: rangeExitManagerServiceAddress,
+    abi: rangeExitManagerServiceABI,
+    functionName: "withdrawLiquidity",
+    account: account,
+    chain,
+    args: [task as unknown, taskIndex, configs as unknown[], signedTask],
+  });
 };
 
 // Flow: price change on Uniswap
@@ -286,16 +345,12 @@ const monitorNewTasks = async () => {
       });
 
       const currentTick = await hook["getCurrentTick(bytes32)"](poolId);
-      console.log("currentTick:", currentTick);
-      console.log("lastTick:", lastTick);
 
       const { min, max, empty } = computeThresholdBounds(
         Number(currentTick),
         Number(lastTick)
       );
-      console.log("min:", min);
-      console.log("max:", max);
-      console.log("empty:", empty);
+
       if (empty) {
         console.log("Tick unchanged; no positions to discover");
         return;
@@ -310,10 +365,17 @@ const monitorNewTasks = async () => {
         new Set([...(discovered || []), ...(pendingEligible || [])])
       );
 
+      const configs = await getConfigsByIds(cfgIds);
+      const normalizedTask = normalizeTaskFromEvent(task);
+
       try {
-        signAndRespondToTask(task, taskIndex, cfgIds);
+        await signAndRespondToTask(normalizedTask, taskIndex, configs);
+        // TODO: after successful on-chain confirmation, clear pending for processed ids
+        // for (const id of cfgIds) await clearPending(id);
       } catch (e) {
         console.error("withdrawLiquidity failed:", e);
+        // Optionally mark all attempted ids as pending
+        // for (const id of cfgIds) await markPending(id);
       }
     }
   );
@@ -326,6 +388,29 @@ const monitorNewTasks = async () => {
         positionId,
         config,
       });
+
+      try {
+        const hash = await writeContract(walletClient, {
+          address: rangeExitManagerServiceAddress,
+          abi: rangeExitManagerServiceABI,
+          functionName: "setPositionManaged",
+          account: account,
+          chain,
+          args: [positionId, true],
+        });
+
+        const receipt = await waitForTransactionReceipt(walletClient, {
+          hash,
+        });
+
+        console.log("[avs] setPositionManaged confirmed", {
+          positionId: positionId.toString(),
+          receipt: receipt,
+        });
+      } catch (e) {
+        console.error("[avs] setPositionManaged failed:", e);
+      }
+
       try {
         await saveConfig({
           owner: config.owner,
@@ -346,9 +431,42 @@ const monitorNewTasks = async () => {
 
   rangeExitManagerService.on(
     "DelegationCancelled",
-    async (positionId, posM) => {
+    async (posM, positionId) => {
       console.log("DelegationCancelled received:", { positionId, posM });
-      // todo: remove from Redis
+
+      try {
+        const hash = await writeContract(walletClient, {
+          address: rangeExitManagerServiceAddress,
+          abi: rangeExitManagerServiceABI,
+          functionName: "setPositionManaged",
+          account: account,
+          chain,
+          args: [positionId.toString(), false],
+        });
+
+        const receipt = await waitForTransactionReceipt(walletClient, {
+          hash,
+        });
+
+        const isStillManaged = await readContract(walletClient, {
+          address: rangeExitManagerServiceAddress,
+          abi: rangeExitManagerServiceABI,
+          functionName: "isPositionManaged",
+          account: account,
+          args: [positionId.toString()],
+        });
+        if (!isStillManaged) {
+          await removeConfig(positionId.toString());
+          console.log("[avs] setPositionManaged to false confirmed", {
+            positionId: positionId.toString(),
+            receipt: receipt,
+          });
+        } else {
+          // addToPendingQueue, process later
+        }
+      } catch (e) {
+        console.error("[avs] setPositionManaged to false failed:", e);
+      }
     }
   );
 
@@ -356,7 +474,72 @@ const monitorNewTasks = async () => {
     "PositionBurned",
     async (positionId, owner, config: UserConfig) => {
       console.log("PositionBurned received:", { positionId, owner, config });
-      // todo: proceed with the logic according to strategy
+      const strategy = Number(config.strategyId);
+
+      if (strategy === StrategyId.None) {
+        console.log(
+          "Strategy None: removing config from storage",
+          positionId.toString()
+        );
+
+        try {
+          const hash = await writeContract(walletClient, {
+            address: rangeExitManagerServiceAddress,
+            abi: rangeExitManagerServiceABI,
+            functionName: "setPositionManaged",
+            account: account,
+            chain,
+            args: [positionId.toString(), false],
+          });
+          const receipt = await waitForTransactionReceipt(walletClient, {
+            hash,
+          });
+
+          await removeConfig(positionId.toString());
+          console.log("Position burned and unmanaged confirmed", {
+            positionId: positionId.toString(),
+            receipt: receipt,
+          });
+        } catch (e) {
+          console.error(
+            "Setting position managed status after burn to false failed:",
+            e
+          );
+        }
+        return;
+      }
+
+      if (strategy === StrategyId.Asset0ToAave) {
+        console.log("Supplying asset 0 to aave");
+        try {
+          // todo: add logic to supply to aave
+          const hash = await writeContract(walletClient, {
+            address: rangeExitManagerServiceAddress,
+            abi: rangeExitManagerServiceABI,
+            functionName: "setPositionManaged",
+            account: account,
+            chain,
+            args: [positionId.toString(), false],
+          });
+          const receipt = await waitForTransactionReceipt(walletClient, {
+            hash,
+          });
+
+          await removeConfig(positionId.toString());
+          console.log("Position supplied to aave and unmanaged confirmed", {
+            positionId: positionId.toString(),
+            receipt: receipt,
+          });
+        } catch (e) {
+          console.error(
+            "Setting position managed status after burn to false failed:",
+            e
+          );
+        }
+        return;
+      }
+
+      console.log("Unknown strategy, leaving config as-is");
     }
   );
 

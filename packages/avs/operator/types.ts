@@ -19,3 +19,8 @@ export interface Task {
   deadline: bigint;
   createdBlock: bigint;
 }
+
+export const StrategyId = {
+  None: 0,
+  Asset0ToAave: 1,
+} as const;

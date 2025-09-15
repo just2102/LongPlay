@@ -1,4 +1,5 @@
 import { redis } from "./Redis";
+import { UserConfig } from "./types";
 
 type SaveArgs = {
   tickThreshold: number;
@@ -25,6 +26,7 @@ export async function saveConfig({
   tickThreshold,
   owner,
   posM,
+  strategyId,
 }: SaveArgs) {
   const kCfg = cfgKey(positionId);
   const kTick = tickSetKey(tickThreshold);
@@ -33,6 +35,7 @@ export async function saveConfig({
   const h: Record<string, string> = {
     positionId,
     tickThreshold: String(tickThreshold),
+    strategyId: String(strategyId ?? 0),
     ...(owner ? { owner } : {}),
     ...(posM ? { posM } : {}),
     createdAt: now,
@@ -51,11 +54,20 @@ export async function removeConfig(positionId: string) {
   const tickStr = await redis.hget(kCfg, "tickThreshold");
   const tx = redis.multi();
   tx.zrem(Z_THRESHOLDS, positionId);
+  tx.zrem(Z_PENDING, positionId);
   if (tickStr) {
     tx.srem(tickSetKey(Number(tickStr)), positionId);
   }
   tx.del(kCfg);
   await tx.exec();
+
+  if (tickStr) {
+    const kTick = tickSetKey(Number(tickStr));
+    const count = await redis.scard(kTick);
+    if (count === 0) {
+      await redis.del(kTick);
+    }
+  }
 }
 
 // todo: if a position was not processed for some reason,
@@ -88,4 +100,44 @@ export async function getPendingEligible(
   }
   // price moved up → any thresholds below currentTick are still eligible
   return await redis.zrangebyscore(Z_PENDING, "-inf", `(${currentTick}`);
+}
+
+function hydrateConfig(h: Record<string, string> | null): UserConfig | null {
+  if (!h) return null;
+  const positionIdStr = h.positionId ?? "0";
+  const tickStr = h.tickThreshold ?? "0";
+  const strategyStr = h.strategyId ?? "0";
+  const owner = h.owner ?? "0x0000000000000000000000000000000000000000";
+  const posM = h.posM ?? "0x0000000000000000000000000000000000000000";
+  try {
+    const cfg: UserConfig = {
+      positionId: BigInt(positionIdStr),
+      tickThreshold: BigInt(tickStr),
+      strategyId: BigInt(strategyStr),
+      owner,
+      posM,
+    };
+    return cfg;
+  } catch {
+    return null;
+  }
+}
+
+export async function getConfig(
+  positionId: string
+): Promise<UserConfig | null> {
+  const h = (await redis.hgetall(cfgKey(positionId))) as unknown as Record<
+    string,
+    string
+  > | null;
+  return hydrateConfig(h);
+}
+
+export async function getConfigsByIds(ids: string[]): Promise<UserConfig[]> {
+  const results: UserConfig[] = [];
+  for (const id of ids) {
+    const cfg = await getConfig(id);
+    if (cfg) results.push(cfg);
+  }
+  return results;
 }

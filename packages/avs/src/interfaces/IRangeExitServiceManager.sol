@@ -37,7 +37,7 @@ interface IRangeExitServiceManager {
     }
 
     event WithdrawNeeded(
-        Task indexed task,
+        Task task,
         uint256 indexed taskIndex,
         PoolKeyCustom poolKey,
         int24 indexed lastTick,
