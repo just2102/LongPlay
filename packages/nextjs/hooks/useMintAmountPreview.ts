@@ -7,15 +7,12 @@ const BIG_READABLE = 1e12;
 const nearlyEqual = (a: number, b: number, eps = 1e-9) =>
   Math.abs(a - b) <= eps * Math.max(1, Math.abs(a), Math.abs(b));
 
-// Utility function to validate and snap tick values to valid tick spacing
 const validateAndSnapTick = (inputTick: number, tickSpacing: number): number => {
   const MIN_TICK = -887272;
   const MAX_TICK = 887272;
 
-  // Clamp to valid range first
   const clampedTick = Math.max(MIN_TICK, Math.min(MAX_TICK, inputTick));
 
-  // Snap to nearest valid tick based on spacing
   return nearestUsableTick(clampedTick, tickSpacing);
 };
 

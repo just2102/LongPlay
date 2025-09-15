@@ -5,9 +5,9 @@ import { Token } from "@uniswap/sdk-core";
 import { nearestUsableTick } from "@uniswap/v3-sdk";
 import { MintOptions, Pool, V4PositionManager } from "@uniswap/v4-sdk";
 import { Position } from "@uniswap/v4-sdk";
-import { decodeEventLog } from "viem";
+import { decodeEventLog, erc20Abi, maxUint48, maxUint256 } from "viem";
 import { useAccount, useWriteContract } from "wagmi";
-import { readContract, signTypedData, waitForTransactionReceipt } from "wagmi/actions";
+import { readContract, signTypedData, waitForTransactionReceipt, writeContract } from "wagmi/actions";
 import { MOCK_CURRENCY0, MOCK_CURRENCY1, MOCK_FEE, MOCK_TICK_SPACING } from "~~/contracts/deployedContracts";
 import { wagmiConfig } from "~~/services/web3/wagmiConfig";
 import { storePosition } from "~~/utils/localStorage";
@@ -162,10 +162,31 @@ export const useMintPosition = () => {
           args: [address, token0.address, getContractsData(chainId).PositionManager.address],
         })) as [bigint, number, number];
 
+        const currentAllowance0 = (await readContract(wagmiConfig, {
+          account: address,
+          address: token0.address,
+          abi: erc20Abi,
+          functionName: "allowance",
+          args: [address, getContractsData(chainId).Permit2.address],
+        })) as bigint;
+        if (currentAllowance0 === 0n) {
+          try {
+            await writeContract(wagmiConfig, {
+              address: token0.address,
+              abi: erc20Abi,
+              functionName: "approve",
+              args: [getContractsData(chainId).Permit2.address, maxUint256],
+            });
+          } catch (err) {
+            console.error(err);
+            return;
+          }
+        }
+
         permitDetails.push({
           token: token0.address,
           amount: (2n ** 160n - 1n).toString(), // Max uint160
-          expiration: mintOptions.deadline.toString(),
+          expiration: Number(maxUint48).toString(),
           nonce: nonce.toString(),
         });
       }
@@ -179,10 +200,30 @@ export const useMintPosition = () => {
           args: [address, token1.address, getContractsData(chainId).PositionManager.address],
         })) as [bigint, number, number];
 
+        const currentAllowance1 = (await readContract(wagmiConfig, {
+          account: address,
+          address: token1.address,
+          abi: erc20Abi,
+          functionName: "allowance",
+          args: [address, getContractsData(chainId).Permit2.address],
+        })) as bigint;
+        if (currentAllowance1 === 0n) {
+          try {
+            await writeContract(wagmiConfig, {
+              address: token1.address,
+              abi: erc20Abi,
+              functionName: "approve",
+              args: [getContractsData(chainId).Permit2.address, maxUint256],
+            });
+          } catch (err) {
+            console.error(err);
+            return;
+          }
+        }
         permitDetails.push({
           token: token1.address,
           amount: (2n ** 160n - 1n).toString(), // Max uint160
-          expiration: mintOptions.deadline.toString(),
+          expiration: Number(maxUint48).toString(),
           nonce: nonce.toString(),
         });
       }

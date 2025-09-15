@@ -76,6 +76,25 @@ export const avsAbi = [
   },
   {
     type: "function",
+    name: "allTaskHashes",
+    inputs: [
+      {
+        name: "",
+        type: "uint128",
+        internalType: "uint128",
+      },
+    ],
+    outputs: [
+      {
+        name: "",
+        type: "bytes32",
+        internalType: "bytes32",
+      },
+    ],
+    stateMutability: "view",
+  },
+  {
+    type: "function",
     name: "allTaskResponses",
     inputs: [
       {
@@ -478,6 +497,38 @@ export const avsAbi = [
   },
   {
     type: "function",
+    name: "isPositionManaged",
+    inputs: [
+      {
+        name: "",
+        type: "uint256",
+        internalType: "uint256",
+      },
+    ],
+    outputs: [
+      {
+        name: "",
+        type: "bool",
+        internalType: "bool",
+      },
+    ],
+    stateMutability: "view",
+  },
+  {
+    type: "function",
+    name: "latestTaskNum",
+    inputs: [],
+    outputs: [
+      {
+        name: "",
+        type: "uint128",
+        internalType: "uint128",
+      },
+    ],
+    stateMutability: "view",
+  },
+  {
+    type: "function",
     name: "owner",
     inputs: [],
     outputs: [
@@ -582,73 +633,6 @@ export const avsAbi = [
   },
   {
     type: "function",
-    name: "respondToTask",
-    inputs: [
-      {
-        name: "task",
-        type: "tuple",
-        internalType: "struct IRangeExitServiceManager.Task",
-        components: [
-          {
-            name: "poolKey",
-            type: "tuple",
-            internalType: "struct IRangeExitServiceManager.PoolKeyCustom",
-            components: [
-              {
-                name: "currency0",
-                type: "address",
-                internalType: "address",
-              },
-              {
-                name: "currency1",
-                type: "address",
-                internalType: "address",
-              },
-              {
-                name: "fee",
-                type: "uint24",
-                internalType: "uint24",
-              },
-              {
-                name: "tickSpacing",
-                type: "int24",
-                internalType: "int24",
-              },
-              {
-                name: "hookAddress",
-                type: "address",
-                internalType: "address",
-              },
-            ],
-          },
-          {
-            name: "lastTick",
-            type: "int24",
-            internalType: "int24",
-          },
-          {
-            name: "deadline",
-            type: "uint256",
-            internalType: "uint256",
-          },
-          {
-            name: "createdBlock",
-            type: "uint32",
-            internalType: "uint32",
-          },
-        ],
-      },
-      {
-        name: "signature",
-        type: "bytes",
-        internalType: "bytes",
-      },
-    ],
-    outputs: [],
-    stateMutability: "nonpayable",
-  },
-  {
-    type: "function",
     name: "rewardsInitiator",
     inputs: [],
     outputs: [
@@ -717,6 +701,24 @@ export const avsAbi = [
         name: "_hookAddress",
         type: "address",
         internalType: "address",
+      },
+    ],
+    outputs: [],
+    stateMutability: "nonpayable",
+  },
+  {
+    type: "function",
+    name: "setPositionManaged",
+    inputs: [
+      {
+        name: "positionId",
+        type: "uint256",
+        internalType: "uint256",
+      },
+      {
+        name: "managed",
+        type: "bool",
+        internalType: "bool",
       },
     ],
     outputs: [],
@@ -794,6 +796,11 @@ export const avsAbi = [
         ],
       },
       {
+        name: "taskIndex",
+        type: "uint32",
+        internalType: "uint32",
+      },
+      {
         name: "operator",
         type: "address",
         internalType: "address",
@@ -830,67 +837,6 @@ export const avsAbi = [
         name: "",
         type: "bool",
         internalType: "bool",
-      },
-    ],
-    stateMutability: "view",
-  },
-  {
-    type: "function",
-    name: "tasks",
-    inputs: [
-      {
-        name: "",
-        type: "bytes32",
-        internalType: "bytes32",
-      },
-    ],
-    outputs: [
-      {
-        name: "poolKey",
-        type: "tuple",
-        internalType: "struct IRangeExitServiceManager.PoolKeyCustom",
-        components: [
-          {
-            name: "currency0",
-            type: "address",
-            internalType: "address",
-          },
-          {
-            name: "currency1",
-            type: "address",
-            internalType: "address",
-          },
-          {
-            name: "fee",
-            type: "uint24",
-            internalType: "uint24",
-          },
-          {
-            name: "tickSpacing",
-            type: "int24",
-            internalType: "int24",
-          },
-          {
-            name: "hookAddress",
-            type: "address",
-            internalType: "address",
-          },
-        ],
-      },
-      {
-        name: "lastTick",
-        type: "int24",
-        internalType: "int24",
-      },
-      {
-        name: "deadline",
-        type: "uint256",
-        internalType: "uint256",
-      },
-      {
-        name: "createdBlock",
-        type: "uint32",
-        internalType: "uint32",
       },
     ],
     stateMutability: "view",
@@ -1031,6 +977,11 @@ export const avsAbi = [
         ],
       },
       {
+        name: "taskIndex",
+        type: "uint32",
+        internalType: "uint32",
+      },
+      {
         name: "configs",
         type: "tuple[]",
         internalType: "struct IRangeExitServiceManager.UserConfig[]",
@@ -1061,6 +1012,11 @@ export const avsAbi = [
             internalType: "address",
           },
         ],
+      },
+      {
+        name: "signature",
+        type: "bytes",
+        internalType: "bytes",
       },
     ],
     outputs: [],
@@ -1125,6 +1081,58 @@ export const avsAbi = [
   },
   {
     type: "event",
+    name: "PositionBurned",
+    inputs: [
+      {
+        name: "positionId",
+        type: "uint256",
+        indexed: true,
+        internalType: "uint256",
+      },
+      {
+        name: "owner",
+        type: "address",
+        indexed: true,
+        internalType: "address",
+      },
+      {
+        name: "config",
+        type: "tuple",
+        indexed: false,
+        internalType: "struct IRangeExitServiceManager.UserConfig",
+        components: [
+          {
+            name: "tickThreshold",
+            type: "int24",
+            internalType: "int24",
+          },
+          {
+            name: "strategyId",
+            type: "uint8",
+            internalType: "uint8",
+          },
+          {
+            name: "owner",
+            type: "address",
+            internalType: "address",
+          },
+          {
+            name: "positionId",
+            type: "uint256",
+            internalType: "uint256",
+          },
+          {
+            name: "posM",
+            type: "address",
+            internalType: "address",
+          },
+        ],
+      },
+    ],
+    anonymous: false,
+  },
+  {
+    type: "event",
     name: "PositionConfigured",
     inputs: [
       {
@@ -1177,25 +1185,6 @@ export const avsAbi = [
   },
   {
     type: "event",
-    name: "PositionModified",
-    inputs: [
-      {
-        name: "positionId",
-        type: "uint256",
-        indexed: true,
-        internalType: "uint256",
-      },
-      {
-        name: "owner",
-        type: "address",
-        indexed: true,
-        internalType: "address",
-      },
-    ],
-    anonymous: false,
-  },
-  {
-    type: "event",
     name: "PositionsModificationRequested",
     inputs: [
       {
@@ -1203,12 +1192,6 @@ export const avsAbi = [
         type: "bytes32",
         indexed: true,
         internalType: "bytes32",
-      },
-      {
-        name: "batchId",
-        type: "uint256",
-        indexed: true,
-        internalType: "uint256",
       },
       {
         name: "positionsCount",
@@ -1317,9 +1300,70 @@ export const avsAbi = [
     name: "WithdrawNeeded",
     inputs: [
       {
+        name: "task",
+        type: "tuple",
+        indexed: false,
+        internalType: "struct IRangeExitServiceManager.Task",
+        components: [
+          {
+            name: "poolKey",
+            type: "tuple",
+            internalType: "struct IRangeExitServiceManager.PoolKeyCustom",
+            components: [
+              {
+                name: "currency0",
+                type: "address",
+                internalType: "address",
+              },
+              {
+                name: "currency1",
+                type: "address",
+                internalType: "address",
+              },
+              {
+                name: "fee",
+                type: "uint24",
+                internalType: "uint24",
+              },
+              {
+                name: "tickSpacing",
+                type: "int24",
+                internalType: "int24",
+              },
+              {
+                name: "hookAddress",
+                type: "address",
+                internalType: "address",
+              },
+            ],
+          },
+          {
+            name: "lastTick",
+            type: "int24",
+            internalType: "int24",
+          },
+          {
+            name: "deadline",
+            type: "uint256",
+            internalType: "uint256",
+          },
+          {
+            name: "createdBlock",
+            type: "uint32",
+            internalType: "uint32",
+          },
+        ],
+      },
+      {
+        name: "taskIndex",
+        type: "uint256",
+        indexed: true,
+        internalType: "uint256",
+      },
+      {
         name: "poolKey",
         type: "tuple",
-        indexed: true,
+        indexed: false,
         internalType: "struct IRangeExitServiceManager.PoolKeyCustom",
         components: [
           {
@@ -1389,5 +1433,21 @@ export const avsAbi = [
     type: "error",
     name: "OnlyStakeRegistry",
     inputs: [],
+  },
+  {
+    type: "error",
+    name: "UserNotPositionOwner",
+    inputs: [
+      {
+        name: "positionOwner",
+        type: "address",
+        internalType: "address",
+      },
+      {
+        name: "caller",
+        type: "address",
+        internalType: "address",
+      },
+    ],
   },
 ] as const;

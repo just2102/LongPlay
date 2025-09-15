@@ -3,20 +3,20 @@ import { hookAbi } from "./abis/hook.abi";
 import { FeeAmount } from "@uniswap/v3-sdk";
 import { GenericContractsDeclaration } from "~~/utils/scaffold-eth/contract";
 
-export const MOCK_CURRENCY0 = "0x142458eE914CE315F040CdCE64647e08f482AB29";
-export const MOCK_CURRENCY1 = "0x23DFBc4B8B80C14CC5e25011B8491f268395BAd6";
-export const MOCK_POOL_ID = "0x7ce4ea882578f13cca94c8be4c90a8565da50cf7e7a870308a29cc2a2700f8f0";
+export const MOCK_CURRENCY0 = "0x21A21fa613917600e9dDE4441920562bB6238DaE";
+export const MOCK_CURRENCY1 = "0xE72B348bCA4DAAD3d8886342557d581B50Bf3971";
+export const MOCK_POOL_ID = "0xb537d153926bab9c8ac7ac4440defb50c453f9407853144e9b697159ab6730e3";
 export const MOCK_FEE = FeeAmount.MEDIUM;
 export const MOCK_TICK_SPACING = 30;
 
 const deployedContracts = {
   31337: {
     LPRebalanceHook: {
-      address: "0xcc7C3155a928cb2FB73B1899259BB0F863E2D440",
+      address: "0xbEb4c9B43424BDe06D17CAfA827b308D413Ed440",
       abi: hookAbi,
     },
     AVS: {
-      address: "0x393f953291462a34ef3dc6ee33567a592af46c8a",
+      address: "0xb0de6e861a20eaf193c6b0a7113341af384e4c02",
       abi: avsAbi,
     },
   },

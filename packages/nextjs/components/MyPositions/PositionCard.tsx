@@ -3,17 +3,42 @@ import { CardBadge } from "./CardBadge";
 import { PositionConfigInfo } from "./PositionConfigInfo";
 import { Currency } from "@uniswap/sdk-core";
 import { tickToPrice } from "@uniswap/v4-sdk";
+import { useReadContract } from "wagmi";
+import { useChainId } from "~~/hooks/useChainId";
 import { PositionStored } from "~~/utils/localStorage";
+import { Contract, getContractsData } from "~~/utils/scaffold-eth/contract";
 
 interface PositionCardProps {
   position: PositionStored;
   handleConfigurePosition: (position: PositionStored) => void;
+  handleCancelDelegation: ({
+    positionId,
+    posM,
+  }: {
+    positionId: number;
+    posM: Contract<"PositionManager">;
+  }) => Promise<void>;
   baseCurrency: Currency | undefined;
   quoteCurrency: Currency | undefined;
 }
 
-export const PositionCard = ({ position, handleConfigurePosition, baseCurrency, quoteCurrency }: PositionCardProps) => {
+export const PositionCard = ({
+  position,
+  handleConfigurePosition,
+  handleCancelDelegation,
+  baseCurrency,
+  quoteCurrency,
+}: PositionCardProps) => {
   const isFullRangePosition = position.tickLower <= -887200 && position.tickUpper >= 887100;
+
+  const chainId = useChainId();
+  const contractData = getContractsData(chainId).AVS;
+  const { data: isPositionManaged } = useReadContract({
+    abi: contractData.abi,
+    address: contractData.address,
+    functionName: "isPositionManaged",
+    args: [BigInt(position.tokenId)],
+  });
   return (
     <div
       className="bg-white border border-gray-200 rounded-xl p-6 
@@ -26,7 +51,7 @@ export const PositionCard = ({ position, handleConfigurePosition, baseCurrency, 
         </div>
 
         <div className="flex flex-col items-end gap-2">
-          <CardBadge isActive={position.isManaged} labelActive="Configured" labelInactive="Not Configured" />
+          <CardBadge isActive={isPositionManaged} labelActive="Configured" labelInactive="Not Configured" />
         </div>
       </div>
 
@@ -79,14 +104,25 @@ export const PositionCard = ({ position, handleConfigurePosition, baseCurrency, 
 
       <Button
         onClick={() => {
-          handleConfigurePosition({
-            ...position,
-            isManaged: !position.isManaged,
-          });
+          if (isPositionManaged === undefined) return;
+
+          if (isPositionManaged) {
+            handleCancelDelegation({
+              positionId: position.tokenId,
+              posM: getContractsData(chainId).PositionManager,
+            });
+          } else {
+            handleConfigurePosition({
+              ...position,
+              isManaged: !position.isManaged,
+            });
+          }
         }}
         className="w-full mt-auto"
+        disabled={isPositionManaged === undefined}
+        variant={isPositionManaged ? "secondary" : "primary"}
       >
-        Configure
+        {isPositionManaged ? "Stop managing" : "Configure"}
       </Button>
     </div>
   );

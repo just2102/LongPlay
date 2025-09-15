@@ -1,24 +1,19 @@
-import { useSyncExternalStore } from "react";
+import { useState, useSyncExternalStore } from "react";
+import { ConfigurePositionModal } from "./ConfigurePositionModal";
 import { MyPositionsPlaceholder } from "./Placeholder";
 import { PositionCard } from "./PositionCard";
 import { MOCK_POOL_ID } from "~~/contracts/deployedContracts";
-import { useChainId } from "~~/hooks/useChainId";
 import { useConfigurePosition } from "~~/hooks/useConfigurePosition";
 import { useMintPosition } from "~~/hooks/useMintPosition";
-import {
-  PositionStored,
-  clearPositions,
-  getPositionsSnapshot,
-  subscribeToPositions,
-  updatePosition,
-} from "~~/utils/localStorage";
-import { getContractsData } from "~~/utils/scaffold-eth/contract";
+import { StrategyId } from "~~/types/avs.types";
+import { PositionStored, clearPositions, getPositionsSnapshot, subscribeToPositions } from "~~/utils/localStorage";
 
 export const MyPositions = () => {
-  const chainId = useChainId();
-  const { configureAction } = useConfigurePosition();
-
   const { pool } = useMintPosition();
+
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [selectedPosition, setSelectedPosition] = useState<PositionStored | null>(null);
+  const [strategyId, setStrategyId] = useState<number>(StrategyId.Asset0ToAave);
 
   const positions = useSyncExternalStore(
     subscribeToPositions,
@@ -26,31 +21,12 @@ export const MyPositions = () => {
     () => [],
   );
 
-  const handleConfigurePosition = async (position: PositionStored) => {
-    if (!pool?.tickSpacing) {
-      throw new Error("Pool tick spacing not found");
-    }
-    // todo: get tickThreshold from form, validate via getLowerUsableTick() on the hook contract
-    const userConfig = await configureAction({
-      tickThreshold: -30,
-      positionId: position.tokenId,
-      posM: getContractsData(chainId).PositionManager,
-      tickSpacing: pool.tickSpacing,
-    });
-
-    if (!userConfig) {
-      console.log("User config not found");
-      return;
-    }
-
-    console.log("User config found", userConfig);
-
-    updatePosition(MOCK_POOL_ID, {
-      ...position,
-      userConfig,
-      isManaged: true,
-    });
+  const openConfigureModal = (position: PositionStored) => {
+    setSelectedPosition(position);
+    setIsModalOpen(true);
   };
+
+  const { cancelDelegationAction } = useConfigurePosition();
 
   if (positions.length === 0) {
     return <MyPositionsPlaceholder />;
@@ -85,13 +61,26 @@ export const MyPositions = () => {
             <PositionCard
               key={position.tokenId}
               position={position}
-              handleConfigurePosition={handleConfigurePosition}
+              handleConfigurePosition={openConfigureModal}
+              handleCancelDelegation={cancelDelegationAction}
               baseCurrency={baseCurrency}
               quoteCurrency={quoteCurrency}
             />
           );
         })}
       </div>
+
+      <ConfigurePositionModal
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+        setSelectedPosition={setSelectedPosition}
+        selectedPosition={selectedPosition}
+        strategyId={strategyId}
+        setStrategyId={setStrategyId}
+        baseCurrency={pool?.currency0}
+        quoteCurrency={pool?.currency1}
+        tickSpacing={pool?.tickSpacing}
+      />
     </div>
   );
 };
