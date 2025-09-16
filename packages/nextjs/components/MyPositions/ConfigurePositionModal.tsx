@@ -182,27 +182,31 @@ export const ConfigurePositionModal = ({
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-2">Strategy</label>
           <div className="grid grid-cols-1 gap-3">
-            <label
-              className={`flex items-start gap-3 rounded-xl border p-3 cursor-pointer ${
-                strategyId === StrategyId.Asset0ToAave
-                  ? "border-gray-900 bg-gray-50"
-                  : "border-gray-200 hover:border-gray-300"
-              }`}
-            >
-              <input
-                type="radio"
-                name="strategy"
-                className="mt-1"
-                checked={strategyId === StrategyId.Asset0ToAave}
-                onChange={() => setStrategyId(StrategyId.Asset0ToAave)}
-              />
-              <div>
-                <div className="text-sm font-medium text-gray-900">Asset 0 to Aave</div>
-                <div className="text-xs text-gray-500">{STRATEGY_LABELS_TO_DESCRIPTION[StrategyId.Asset0ToAave]}</div>
-              </div>
-            </label>
+            <StrategyInputWithLabel
+              setStrategyId={setStrategyId}
+              isChecked={strategyId === StrategyId.None}
+              description={STRATEGY_LABELS_TO_DESCRIPTION[StrategyId.None]}
+              label="No strategy"
+              strategyId={StrategyId.None}
+            />
 
-            <label
+            <StrategyInputWithLabel
+              setStrategyId={setStrategyId}
+              isChecked={strategyId === StrategyId.Asset0ToAave}
+              description={STRATEGY_LABELS_TO_DESCRIPTION[StrategyId.Asset0ToAave]}
+              label="Asset 0 to Aave"
+              strategyId={StrategyId.Asset0ToAave}
+            />
+
+            <StrategyInputWithLabel
+              setStrategyId={setStrategyId}
+              isChecked={strategyId === StrategyId.Asset1ToAave}
+              description={STRATEGY_LABELS_TO_DESCRIPTION[StrategyId.Asset1ToAave]}
+              label="Asset 1 to Aave"
+              strategyId={StrategyId.Asset1ToAave}
+            />
+
+            {/* <label
               className={`flex items-start gap-3 rounded-xl border p-3 cursor-pointer ${
                 strategyId === StrategyId.None ? "border-gray-900 bg-gray-50" : "border-gray-200 hover:border-gray-300"
               }`}
@@ -218,7 +222,7 @@ export const ConfigurePositionModal = ({
                 <div className="text-sm font-medium text-gray-900">No strategy</div>
                 <div className="text-xs text-gray-500">{STRATEGY_LABELS_TO_DESCRIPTION[StrategyId.None]}</div>
               </div>
-            </label>
+            </label> */}
           </div>
         </div>
 
@@ -234,5 +238,40 @@ export const ConfigurePositionModal = ({
         </div>
       </div>
     </Modal>
+  );
+};
+
+interface StrategyInputWithLabelProps {
+  isChecked: boolean;
+  setStrategyId: (id: number) => void;
+  description: string;
+  label: string;
+  strategyId: number;
+}
+const StrategyInputWithLabel = ({
+  isChecked,
+  setStrategyId,
+  description,
+  label,
+  strategyId,
+}: StrategyInputWithLabelProps) => {
+  return (
+    <label
+      className={`flex items-start gap-3 rounded-xl border p-3 cursor-pointer ${
+        isChecked ? "border-gray-900 bg-gray-50" : "border-gray-200 hover:border-gray-300"
+      }`}
+    >
+      <input
+        type="radio"
+        name="strategy"
+        className="mt-1"
+        checked={isChecked}
+        onChange={() => setStrategyId(strategyId)}
+      />
+      <div>
+        <div className="text-sm font-medium text-gray-900">{label}</div>
+        <div className="text-xs text-gray-500">{description}</div>
+      </div>
+    </label>
   );
 };

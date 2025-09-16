@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useChainId } from "./useChainId";
 import { usePoolData } from "./usePoolData";
 import { Token } from "@uniswap/sdk-core";
@@ -46,27 +46,28 @@ export const useMintPosition = () => {
 
   const [isSendingTx, setIsSendingTx] = useState(false);
 
-  const token0 = new Token(chainId, MOCK_CURRENCY0, 18);
-  const token1 = new Token(chainId, MOCK_CURRENCY1, 18);
+  const token0 = new Token(chainId, MOCK_CURRENCY0, 6);
+  const token1 = new Token(chainId, MOCK_CURRENCY1, 6);
 
   const { sqrtPriceX96Current, currentLiquidity, currentTick, isLoading } = usePoolData();
 
   const hookAddress = getContractsData(chainId).LPRebalanceHook.address;
 
-  const hasValues = sqrtPriceX96Current !== undefined && currentLiquidity !== undefined && currentTick !== undefined;
+  const pool = useMemo(() => {
+    const hasValues = sqrtPriceX96Current !== undefined && currentLiquidity !== undefined && currentTick !== undefined;
+    if (!hasValues) return null;
 
-  const pool = hasValues
-    ? new Pool(
-        token0,
-        token1,
-        MOCK_FEE,
-        MOCK_TICK_SPACING,
-        hookAddress,
-        sqrtPriceX96Current!.toString(),
-        currentLiquidity!.toString(),
-        currentTick!,
-      )
-    : null;
+    return new Pool(
+      token0,
+      token1,
+      MOCK_FEE,
+      MOCK_TICK_SPACING,
+      hookAddress,
+      sqrtPriceX96Current!.toString(),
+      currentLiquidity!.toString(),
+      currentTick!,
+    );
+  }, [token0?.address, token1?.address, hookAddress, sqrtPriceX96Current, currentLiquidity, currentTick]);
 
   const getMintPreview = ({
     fullRange,
@@ -247,7 +248,6 @@ export const useMintPosition = () => {
           message: permitData,
         });
 
-        // Add the permit data and signature to our mint options
         mintOptions.batchPermit = {
           owner: address,
           permitBatch: permitData,
@@ -257,8 +257,6 @@ export const useMintPosition = () => {
     }
 
     const { calldata, value } = V4PositionManager.addCallParameters(position, mintOptions);
-    console.log("Calldata:", calldata);
-    console.log("Value:", value);
 
     setIsSendingTx(true);
 
@@ -270,7 +268,6 @@ export const useMintPosition = () => {
         args: [[calldata]],
         value: BigInt(value),
       });
-      console.log("Hash:", hash);
 
       const receipt = await waitForTransactionReceipt(wagmiConfig, {
         hash,

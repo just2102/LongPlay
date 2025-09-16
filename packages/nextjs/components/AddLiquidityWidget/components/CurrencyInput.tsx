@@ -2,6 +2,16 @@ import { Currency } from "@uniswap/sdk-core";
 import { erc20Abi, formatUnits } from "viem";
 import { useAccount, useReadContract } from "wagmi";
 
+const compactFormatter = new Intl.NumberFormat("en-US", { notation: "compact", maximumFractionDigits: 2 });
+const fullFormatter = new Intl.NumberFormat("en-US", { maximumFractionDigits: 6 });
+const formatReadable = (n: number): string => {
+  if (!Number.isFinite(n)) return "-";
+  if (n === 0) return "0";
+  if (n < 0.000001) return "< 0.000001";
+  if (n >= 1_000_000) return compactFormatter.format(n);
+  return n.toFixed(6);
+};
+
 export const CurrencyInput = ({
   amountReadable,
   setAmountReadable,
@@ -30,6 +40,12 @@ export const CurrencyInput = ({
     },
   });
 
+  const { data: symbol } = useReadContract({
+    address: currencyAddress,
+    abi: erc20Abi,
+    functionName: "symbol",
+  });
+
   const decimals = currency?.decimals || 18;
 
   const readableBalance = tokenBalance ? Number(formatUnits(tokenBalance, decimals)) : undefined;
@@ -38,9 +54,9 @@ export const CurrencyInput = ({
     <label className="flex flex-col gap-1">
       <div className="flex items-center justify-between">
         <span className="text-sm font-medium text-gray-700">Amount {label}</span>
-        {currency?.symbol && (
+        {symbol && (
           <span className="px-2 py-0.5 text-xs rounded-full bg-gray-100 text-gray-700 border border-gray-200">
-            {currency.symbol}
+            {symbol}
           </span>
         )}
       </div>
@@ -58,7 +74,7 @@ export const CurrencyInput = ({
 
       {readableBalance !== undefined && (
         <div className="flex items-center justify-between text-xs text-gray-600">
-          <span>Balance: {readableBalance.toFixed(6)}</span>
+          <span title={fullFormatter.format(readableBalance)}>Balance: {formatReadable(readableBalance)}</span>
           <button
             type="button"
             className="underline hover:opacity-80 cursor-pointer"

@@ -38,11 +38,27 @@ export const PositionCard = ({
     address: contractData.address,
     functionName: "isPositionManaged",
     args: [BigInt(position.tokenId)],
+    query: {
+      refetchInterval: 5_000,
+    },
   });
+
+  const { data: isPositionWithdrawn } = useReadContract({
+    abi: contractData.abi,
+    address: contractData.address,
+    functionName: "isPositionWithdrawn",
+    args: [BigInt(position.tokenId)],
+    query: {
+      refetchInterval: 5_000,
+    },
+  });
+
   return (
     <div
-      className="bg-white border border-gray-200 rounded-xl p-6 
-    shadow-sm hover:shadow-md transition-all duration-200 hover:border-gray-300 h-full flex flex-col"
+      className={`bg-white border border-gray-200 rounded-xl p-6 
+    shadow-sm hover:shadow-md transition-all duration-200 hover:border-gray-300 h-full flex flex-col
+    ${isPositionWithdrawn ? "opacity-50 cursor-not-allowed" : ""}
+    `}
     >
       <div className="flex justify-between items-start mb-4">
         <div>
@@ -51,7 +67,11 @@ export const PositionCard = ({
         </div>
 
         <div className="flex flex-col items-end gap-2">
-          <CardBadge isActive={isPositionManaged} labelActive="Configured" labelInactive="Not Configured" />
+          <CardBadge
+            isActive={isPositionManaged}
+            labelActive={isPositionWithdrawn ? "Withdrawn" : "Configured"}
+            labelInactive={isPositionWithdrawn ? "Withdrawn" : "Not Configured"}
+          />
         </div>
       </div>
 
@@ -119,7 +139,7 @@ export const PositionCard = ({
           }
         }}
         className="w-full mt-auto"
-        disabled={isPositionManaged === undefined}
+        disabled={isPositionManaged === undefined || isPositionWithdrawn}
         variant={isPositionManaged ? "secondary" : "primary"}
       >
         {isPositionManaged ? "Stop managing" : "Configure"}

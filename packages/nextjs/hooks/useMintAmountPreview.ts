@@ -67,6 +67,7 @@ export const useMintAmountPreview = () => {
         if (!nearlyEqual(actualA, amountAReadable)) setAmountAReadable(actualA);
       }
     } else {
+      // Anchor to A by default on first compute to prevent oscillation
       preview = getMintPreview({
         fullRange,
         lowerTickTarget,
@@ -76,10 +77,15 @@ export const useMintAmountPreview = () => {
         token0IsA: Boolean(isToken0A),
       });
       if (preview) {
-        const { actualA, actualB } = pickActuals(preview);
+        const { actualB } = pickActuals(preview);
 
-        if (!nearlyEqual(actualA, amountAReadable)) setAmountAReadable(actualA);
-        if (!nearlyEqual(actualB, amountBReadable)) setAmountBReadable(actualB);
+        if (!nearlyEqual(actualB, amountBReadable)) {
+          setAmountBReadable(actualB);
+        }
+        // Set lastEdited to anchor further recalcs to A-only updates
+        if (lastEdited === null) {
+          setLastEdited("A");
+        }
       }
     }
   }, [

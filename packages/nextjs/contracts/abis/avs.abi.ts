@@ -516,6 +516,25 @@ export const avsAbi = [
   },
   {
     type: "function",
+    name: "isPositionWithdrawn",
+    inputs: [
+      {
+        name: "",
+        type: "uint256",
+        internalType: "uint256",
+      },
+    ],
+    outputs: [
+      {
+        name: "",
+        type: "bool",
+        internalType: "bool",
+      },
+    ],
+    stateMutability: "view",
+  },
+  {
+    type: "function",
     name: "latestTaskNum",
     inputs: [],
     outputs: [
@@ -866,6 +885,45 @@ export const avsAbi = [
     ],
     outputs: [],
     stateMutability: "nonpayable",
+  },
+  {
+    type: "function",
+    name: "userConfigs",
+    inputs: [
+      {
+        name: "",
+        type: "uint256",
+        internalType: "uint256",
+      },
+    ],
+    outputs: [
+      {
+        name: "tickThreshold",
+        type: "int24",
+        internalType: "int24",
+      },
+      {
+        name: "strategyId",
+        type: "uint8",
+        internalType: "uint8",
+      },
+      {
+        name: "owner",
+        type: "address",
+        internalType: "address",
+      },
+      {
+        name: "positionId",
+        type: "uint256",
+        internalType: "uint256",
+      },
+      {
+        name: "posM",
+        type: "address",
+        internalType: "address",
+      },
+    ],
+    stateMutability: "view",
   },
   {
     type: "function",
