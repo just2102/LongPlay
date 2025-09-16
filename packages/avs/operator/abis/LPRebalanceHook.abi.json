@@ -428,24 +428,6 @@
   },
   {
     "type": "function",
-    "name": "approveLpTokens",
-    "inputs": [
-      {
-        "name": "positionManager",
-        "type": "address",
-        "internalType": "address"
-      },
-      {
-        "name": "tokenId",
-        "type": "uint256",
-        "internalType": "uint256"
-      }
-    ],
-    "outputs": [],
-    "stateMutability": "nonpayable"
-  },
-  {
-    "type": "function",
     "name": "beforeAddLiquidity",
     "inputs": [
       {
@@ -972,7 +954,7 @@
   },
   {
     "type": "function",
-    "name": "getLowerUsableTick",
+    "name": "getUsableTick",
     "inputs": [
       {
         "name": "tick",
@@ -1060,30 +1042,6 @@
   },
   {
     "type": "function",
-    "name": "positions",
-    "inputs": [
-      {
-        "name": "tickThreshold",
-        "type": "int24",
-        "internalType": "int24"
-      },
-      {
-        "name": "",
-        "type": "uint256",
-        "internalType": "uint256"
-      }
-    ],
-    "outputs": [
-      {
-        "name": "positionIds",
-        "type": "uint256",
-        "internalType": "uint256"
-      }
-    ],
-    "stateMutability": "view"
-  },
-  {
-    "type": "function",
     "name": "renounceOwnership",
     "inputs": [],
     "outputs": [],
@@ -1117,6 +1075,19 @@
   },
   {
     "type": "function",
+    "name": "setTaskDeadline",
+    "inputs": [
+      {
+        "name": "_taskDeadline",
+        "type": "uint128",
+        "internalType": "uint128"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
     "name": "transferOwnership",
     "inputs": [
       {
@@ -1127,45 +1098,6 @@
     ],
     "outputs": [],
     "stateMutability": "nonpayable"
-  },
-  {
-    "type": "function",
-    "name": "userConfigs",
-    "inputs": [
-      {
-        "name": "positionId",
-        "type": "uint256",
-        "internalType": "uint256"
-      }
-    ],
-    "outputs": [
-      {
-        "name": "tickThreshold",
-        "type": "int24",
-        "internalType": "int24"
-      },
-      {
-        "name": "strategyId",
-        "type": "uint8",
-        "internalType": "uint8"
-      },
-      {
-        "name": "owner",
-        "type": "address",
-        "internalType": "address"
-      },
-      {
-        "name": "positionId",
-        "type": "uint256",
-        "internalType": "uint256"
-      },
-      {
-        "name": "posM",
-        "type": "address",
-        "internalType": "address"
-      }
-    ],
-    "stateMutability": "view"
   },
   {
     "type": "event",
@@ -1184,6 +1116,12 @@
         "internalType": "address"
       }
     ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "ServiceNotSet",
+    "inputs": [],
     "anonymous": false
   },
   {

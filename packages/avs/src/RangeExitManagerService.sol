@@ -86,7 +86,7 @@ contract RangeExitManagerService is ECDSAServiceManagerBase, IRangeExitServiceMa
         bool isApproved = IPositionManagerMinimal(posM).isApprovedForAll(positionOwner, address(this));
         require(isApproved, "Position is not approved for the AVS");
 
-        int24 tickThresholdToUse = HOOK.getLowerUsableTick(tickThreshold, tickSpacing);
+        int24 tickThresholdToUse = HOOK.getUsableTick(tickThreshold, tickSpacing);
         UserConfig memory config = UserConfig({
             tickThreshold: tickThresholdToUse,
             strategyId: uint8(strategyId),

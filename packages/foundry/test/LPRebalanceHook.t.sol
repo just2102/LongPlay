@@ -119,7 +119,7 @@ contract LPRebalanceHookTest is Test, Deployers {
         IRangeExitServiceManager(SERVICE).createNewTask(poolKeyCustom, -20, block.timestamp + 600, poolKey.toId());
     }
 
-    function test_MintAndcConfigurePosition() external {
+    function test_MintAndConfigurePosition() external {
         require(address(SERVICE) != address(0), "SERVICE is not set");
 
         uint256 positionId = posM.nextTokenId();
@@ -136,7 +136,7 @@ contract LPRebalanceHookTest is Test, Deployers {
 
     function test_AddLiquidity() external {
         int24 currentTick = getCurrentTick();
-        int24 lowerUsableTick = hook.getLowerUsableTick(currentTick, poolKey.tickSpacing);
+        int24 lowerUsableTick = hook.getUsableTick(currentTick, poolKey.tickSpacing);
         assertEq(lowerUsableTick, -30);
 
         uint256 positionId = posM.nextTokenId();
@@ -144,35 +144,35 @@ contract LPRebalanceHookTest is Test, Deployers {
         addLiquidity(positionId, -60, -30);
     }
 
-    function test_getLowerUsableTick_negative() external view {
-        int24 tickThresholdToUse = hook.getLowerUsableTick(-24, 30);
+    function test_getUsableTick_negative() external view {
+        int24 tickThresholdToUse = hook.getUsableTick(-24, 30);
         assertEq(tickThresholdToUse, -30);
 
-        tickThresholdToUse = hook.getLowerUsableTick(-20, 30);
+        tickThresholdToUse = hook.getUsableTick(-20, 30);
         assertEq(tickThresholdToUse, -30);
 
-        tickThresholdToUse = hook.getLowerUsableTick(-18, 30);
+        tickThresholdToUse = hook.getUsableTick(-18, 30);
         assertEq(tickThresholdToUse, -30);
 
-        tickThresholdToUse = hook.getLowerUsableTick(-12, 30);
+        tickThresholdToUse = hook.getUsableTick(-12, 30);
         assertEq(tickThresholdToUse, -30);
 
-        tickThresholdToUse = hook.getLowerUsableTick(-6, 30);
+        tickThresholdToUse = hook.getUsableTick(-6, 30);
         assertEq(tickThresholdToUse, -30);
     }
 
-    function test_getLowerUsableTick_positive() external view {
-        int24 tickThresholdToUse = hook.getLowerUsableTick(24, 30);
-        assertEq(tickThresholdToUse, 0);
-
-        tickThresholdToUse = hook.getLowerUsableTick(20, 30);
-        assertEq(tickThresholdToUse, 0);
-
-        tickThresholdToUse = hook.getLowerUsableTick(30, 30);
+    function test_getUsableTick_positive() external view {
+        int24 tickThresholdToUse = hook.getUsableTick(24, 30);
         assertEq(tickThresholdToUse, 30);
 
-        tickThresholdToUse = hook.getLowerUsableTick(31, 30);
+        tickThresholdToUse = hook.getUsableTick(20, 30);
         assertEq(tickThresholdToUse, 30);
+
+        tickThresholdToUse = hook.getUsableTick(30, 30);
+        assertEq(tickThresholdToUse, 30);
+
+        tickThresholdToUse = hook.getUsableTick(31, 30);
+        assertEq(tickThresholdToUse, 60);
     }
 
     function addLiquidity(uint256 positionId, int24 tickLower, int24 tickUpper) internal {

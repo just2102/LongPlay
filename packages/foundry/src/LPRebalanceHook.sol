@@ -119,11 +119,14 @@ contract LPRebalanceHook is BaseHook, ReentrancyGuard, Ownable {
         return (this.afterSwap.selector, 0);
     }
 
-    function getLowerUsableTick(int24 tick, int24 tickSpacing) public pure returns (int24) {
+    // @notice Rounds down for negative ticks, rounds up for positive ticks
+    function getUsableTick(int24 tick, int24 tickSpacing) public pure returns (int24) {
         int24 intervals = tick / tickSpacing;
 
         if (tick < 0 && tick % tickSpacing != 0) {
             intervals--;
+        } else if (tick > 0 && tick % tickSpacing != 0) {
+            intervals++;
         }
 
         return intervals * tickSpacing;
