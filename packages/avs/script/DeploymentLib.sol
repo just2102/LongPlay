@@ -18,7 +18,7 @@ import {Strings} from "@openzeppelin/contracts/utils/Strings.sol";
 import {ILPRebalanceHook} from "../src/interfaces/ILPRebalanceHook.sol";
 import {IRangeExitServiceManager} from "../src/interfaces/IRangeExitServiceManager.sol";
 
-library HelloWorldDeploymentLib {
+library DeploymentLib {
     using stdJson for *;
     using Strings for *;
     using UpgradeableProxyLib for address;
@@ -26,7 +26,7 @@ library HelloWorldDeploymentLib {
     Vm internal constant vm = Vm(address(uint160(uint256(keccak256("hevm cheat code")))));
 
     struct DeploymentData {
-        address helloWorldServiceManager;
+        address service;
         address stakeRegistry;
         address strategy;
         address token;
@@ -50,7 +50,7 @@ library HelloWorldDeploymentLib {
 
         {
             // First, deploy upgradeable proxy contracts that will point to the implementations.
-            result.helloWorldServiceManager = UpgradeableProxyLib.setUpEmptyProxy(proxyAdmin);
+            result.service = UpgradeableProxyLib.setUpEmptyProxy(proxyAdmin);
             result.stakeRegistry = UpgradeableProxyLib.setUpEmptyProxy(proxyAdmin);
         }
         deployAndUpgradeStakeRegistryImpl(result, core, quorum);
@@ -66,8 +66,7 @@ library HelloWorldDeploymentLib {
     ) private {
         address stakeRegistryImpl = address(new ECDSAStakeRegistry(IDelegationManager(core.delegationManager)));
 
-        bytes memory upgradeCall =
-            abi.encodeCall(ECDSAStakeRegistry.initialize, (deployment.helloWorldServiceManager, 0, quorum));
+        bytes memory upgradeCall = abi.encodeCall(ECDSAStakeRegistry.initialize, (deployment.service, 0, quorum));
         UpgradeableProxyLib.upgradeAndCall(deployment.stakeRegistry, stakeRegistryImpl, upgradeCall);
     }
 
@@ -77,8 +76,8 @@ library HelloWorldDeploymentLib {
         address owner,
         address rewardsInitiator
     ) private {
-        address helloWorldServiceManager = deployment.helloWorldServiceManager;
-        address helloWorldServiceManagerImpl = address(
+        address service = deployment.service;
+        address serviceImpl = address(
             new RangeExitManagerService(
                 core.avsDirectory,
                 deployment.stakeRegistry,
@@ -94,9 +93,15 @@ library HelloWorldDeploymentLib {
             revert("HOOK_ADDRESS not found in environment variables");
         }
 
-        bytes memory upgradeCall = abi.encodeCall(RangeExitManagerService.initialize, (owner, rewardsInitiator, hook));
+        address aavePool = vm.envAddress("AAVE_POOL_ADDRESS");
+        if (aavePool == address(0)) {
+            revert("AAVE_POOL_ADDRESS not found in environment variables");
+        }
 
-        UpgradeableProxyLib.upgradeAndCall(helloWorldServiceManager, helloWorldServiceManagerImpl, upgradeCall);
+        bytes memory upgradeCall =
+            abi.encodeCall(RangeExitManagerService.initialize, (owner, rewardsInitiator, hook, aavePool));
+
+        UpgradeableProxyLib.upgradeAndCall(service, serviceImpl, upgradeCall);
     }
 
     function readDeploymentJson(uint256 chainId) internal view returns (DeploymentData memory) {
@@ -110,13 +115,13 @@ library HelloWorldDeploymentLib {
     {
         string memory fileName = string.concat(directoryPath, vm.toString(chainId), ".json");
 
-        require(vm.exists(fileName), "HelloWorldDeployment: Deployment file does not exist");
+        require(vm.exists(fileName), "ServiceDeployment: Deployment file does not exist");
 
         string memory json = vm.readFile(fileName);
 
         DeploymentData memory data;
         /// TODO: 2 Step for reading deployment json.  Read to the core and the AVS data
-        data.helloWorldServiceManager = json.readAddress(".addresses.helloWorldServiceManager");
+        data.service = json.readAddress(".addresses.service");
         data.stakeRegistry = json.readAddress(".addresses.stakeRegistry");
         data.strategy = json.readAddress(".addresses.strategy");
         data.token = json.readAddress(".addresses.token");
@@ -130,7 +135,7 @@ library HelloWorldDeploymentLib {
     }
 
     function writeDeploymentJson(string memory outputPath, uint256 chainId, DeploymentData memory data) internal {
-        address proxyAdmin = address(UpgradeableProxyLib.getProxyAdmin(data.helloWorldServiceManager));
+        address proxyAdmin = address(UpgradeableProxyLib.getProxyAdmin(data.service));
 
         string memory deploymentData = _generateDeploymentJson(data, proxyAdmin);
 
@@ -150,7 +155,7 @@ library HelloWorldDeploymentLib {
     {
         string memory pathToFile = string.concat(directoryPath, fileName);
 
-        require(vm.exists(pathToFile), "HelloWorldDeployment: Deployment Config file does not exist");
+        require(vm.exists(pathToFile), "ServiceDeployment: Deployment Config file does not exist");
 
         string memory json = vm.readFile(pathToFile);
 
@@ -194,10 +199,10 @@ library HelloWorldDeploymentLib {
         return string.concat(
             '{"proxyAdmin":"',
             proxyAdmin.toHexString(),
-            '","helloWorldServiceManager":"',
-            data.helloWorldServiceManager.toHexString(),
-            '","helloWorldServiceManagerImpl":"',
-            data.helloWorldServiceManager.getImplementation().toHexString(),
+            '","service":"',
+            data.service.toHexString(),
+            '","serviceImpl":"',
+            data.service.getImplementation().toHexString(),
             '","stakeRegistry":"',
             data.stakeRegistry.toHexString(),
             '","stakeRegistryImpl":"',

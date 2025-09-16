@@ -11,19 +11,25 @@ import {ILPRebalanceHook} from "./interfaces/ILPRebalanceHook.sol";
 import {Actions} from "./libraries/Actions.sol";
 import {ECDSAUpgradeable} from "@openzeppelin-upgrades/contracts/utils/cryptography/ECDSAUpgradeable.sol";
 import {IERC1271Upgradeable} from "@openzeppelin-upgrades/contracts/interfaces/IERC1271Upgradeable.sol";
+import {IPool} from "./interfaces/IAavePool.sol";
+import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 contract RangeExitManagerService is ECDSAServiceManagerBase, IRangeExitServiceManager {
     using ECDSAUpgradeable for bytes32;
+    using SafeERC20 for IERC20;
 
     mapping(uint128 => bytes32) public allTaskHashes;
     mapping(address operator => mapping(bytes32 => bytes)) public allTaskResponses;
     mapping(bytes32 => bool) public taskWasResponded;
     mapping(uint256 => bool) public isPositionManaged;
     mapping(uint256 => UserConfig) public userConfigs;
+    mapping(uint256 => bool) public isPositionWithdrawn;
 
     uint128 public latestTaskNum;
 
     ILPRebalanceHook public HOOK;
+    IPool public AAVE_POOL;
 
     // max interval in blocks for responding to a task
     // operators can be penalized if they don't respond in time
@@ -56,9 +62,17 @@ contract RangeExitManagerService is ECDSAServiceManagerBase, IRangeExitServiceMa
         HOOK = ILPRebalanceHook(_hookAddress);
     }
 
-    function initialize(address initialOwner, address _rewardsInitiator, address _hookAddress) external initializer {
+    function setPoolAddress(address _poolAddress) external onlyOwner {
+        AAVE_POOL = IPool(_poolAddress);
+    }
+
+    function initialize(address initialOwner, address _rewardsInitiator, address _hookAddress, address _aavePoolAddress)
+        external
+        initializer
+    {
         __ServiceManagerBase_init(initialOwner, _rewardsInitiator);
         HOOK = ILPRebalanceHook(_hookAddress);
+        AAVE_POOL = IPool(_aavePoolAddress);
     }
 
     // These are just to comply with IServiceManager interface
@@ -170,12 +184,10 @@ contract RangeExitManagerService is ECDSAServiceManagerBase, IRangeExitServiceMa
 
                 bool isValidPosition = validatePositionForWithdraw(userConfig, posM);
                 if (!isValidPosition) {
-                    console.log("Invalid position, continue");
                     continue;
                 }
 
-                console.log("Position is valid, proceeding according to strategy", positionId);
-
+                (uint256 b0Before, uint256 b1Before) = getBalancesBefore(currency0, currency1);
                 // todo: add min amounts
                 uint128 amount0Min = 0;
                 uint128 amount1Min = 0;
@@ -185,16 +197,12 @@ contract RangeExitManagerService is ECDSAServiceManagerBase, IRangeExitServiceMa
                 bytes memory actions = abi.encodePacked(uint8(Actions.BURN_POSITION), uint8(Actions.TAKE_PAIR));
                 bytes[] memory params = new bytes[](2);
                 params[0] = abi.encode(positionId, amount0Min, amount1Min, hookData);
-                params[1] = abi.encode(currency0, currency1, owner);
+                params[1] = abi.encode(currency0, currency1, address(this));
 
-                console.log("Burning position id: ", positionId);
-                console.log("Recipient: ", owner);
-
-                // commented out for tests
-                // posM.modifyLiquidities(abi.encode(actions, params), deadline);
+                isPositionWithdrawn[positionId] = true;
+                posM.modifyLiquidities(abi.encode(actions, params), deadline);
+                applyStrategy(userConfig, currency0, currency1, b0Before, b1Before);
                 emit PositionBurned(positionId, owner, userConfig);
-
-                console.log("Position burned successfully", positionId);
             }
         }
 
@@ -205,17 +213,34 @@ contract RangeExitManagerService is ECDSAServiceManagerBase, IRangeExitServiceMa
         require(magicValue == isValidSignatureResult, "Invalid signature");
     }
 
+    function getBalancesBefore(address currency0, address currency1) internal returns (uint256, uint256) {
+        uint256 b0Before;
+        uint256 b1Before;
+
+        if (currency0 == address(0)) {
+            b0Before = address(this).balance;
+        } else {
+            b0Before = IERC20(currency0).balanceOf(address(this));
+        }
+
+        if (currency1 == address(0)) {
+            b1Before = address(this).balance;
+        } else {
+            b1Before = IERC20(currency1).balanceOf(address(this));
+        }
+
+        return (b0Before, b1Before);
+    }
+
     function validatePositionForWithdraw(UserConfig memory userConfig, IPositionManagerMinimal posM)
         public
         view
         returns (bool)
     {
         if (userConfig.positionId == 0) {
-            console.log("Position id is invalid");
             return false;
         }
         if (userConfig.owner == address(0)) {
-            console.log("Owner is invalid");
             return false;
         }
 
@@ -229,6 +254,15 @@ contract RangeExitManagerService is ECDSAServiceManagerBase, IRangeExitServiceMa
             // i.e., the position consists 100% of asset0.
             int24 currentTick = HOOK.getCurrentTick(poolKey);
             if (currentTick < userConfig.tickThreshold) {
+                return true;
+            } else {
+                return false;
+            }
+        }
+
+        if (userConfig.strategyId == uint8(StrategyId.Asset1ToAave)) {
+            int24 currentTick = HOOK.getCurrentTick(poolKey);
+            if (currentTick > userConfig.tickThreshold) {
                 return true;
             } else {
                 return false;
@@ -256,13 +290,32 @@ contract RangeExitManagerService is ECDSAServiceManagerBase, IRangeExitServiceMa
         isPositionManaged[positionId] = managed;
     }
 
-    // function _applyStrategy(Task memory task, UserConfig memory config) internal {
-    //     if (StrategyId(config.strategyId) == StrategyId.BurnWithdrawToAave) {
-    //         // TODO: integrate with position manager to burn liquidity and withdraw
-    //         // TODO: route assets to Aave pool and update accounting
-    //         emit PositionModified(config.positionId, config.owner);
-    //     }
-    // }
+    function applyStrategy(
+        UserConfig memory userConfig,
+        address currency0,
+        address currency1,
+        uint256 b0Before,
+        uint256 b1Before
+    ) internal {
+        uint256 r0 = IERC20(currency0).balanceOf(address(this)) - b0Before;
+        uint256 r1 = IERC20(currency1).balanceOf(address(this)) - b1Before;
+        address owner = userConfig.owner;
+        IERC20 t0 = IERC20(currency0);
+        IERC20 t1 = IERC20(currency1);
+
+        if (userConfig.strategyId == uint8(StrategyId.Asset0ToAave) && r0 > 0) {
+            t0.safeApprove(address(AAVE_POOL), r0);
+            AAVE_POOL.supply(currency0, r0, owner, 0);
+            if (r1 > 0) t1.safeTransfer(owner, r1);
+        } else if (userConfig.strategyId == uint8(StrategyId.Asset1ToAave) && r1 > 0) {
+            t1.safeApprove(address(AAVE_POOL), r1);
+            AAVE_POOL.supply(currency1, r1, owner, 0);
+            if (r0 > 0) t0.safeTransfer(owner, r0);
+        } else {
+            if (r0 > 0) t0.safeTransfer(owner, r0);
+            if (r1 > 0) t1.safeTransfer(owner, r1);
+        }
+    }
 
     function slashOperator(Task calldata task, uint32 taskIndex, address operator) external {
         // check that the task is valid, hasn't been responsed yet

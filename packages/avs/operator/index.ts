@@ -13,18 +13,22 @@ import {
   removeConfig,
 } from "./storage";
 import { redis } from "./Redis";
+import { computeThresholdBounds } from "./bounds";
 import {
   Address,
   createNonceManager,
   createWalletClient,
   http,
   NonceManager as NonceManagerViem,
+  parseEther,
 } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
 import {
   waitForTransactionReceipt,
   writeContract,
   readContract,
+  getGasPrice,
+  getTransactionCount,
 } from "viem/actions";
 import { hardhat } from "viem/chains";
 import { jsonRpc } from "viem/nonce";
@@ -60,7 +64,7 @@ const account = privateKeyToAccount(process.env.PRIVATE_KEY! as Address, {
 const chain = hardhat;
 
 const rpcUrl = process.env.RPC_URL! as string;
-const walletClient = createWalletClient({
+export const walletClient = createWalletClient({
   account: account,
   transport: http(rpcUrl),
   chain: chain,
@@ -90,9 +94,7 @@ const coreDeploymentData = JSON.parse(
 
 const delegationManagerAddress = coreDeploymentData.addresses.delegationManager; // todo: reminder to fix the naming of this contract in the deployment file, change to delegationManager
 const avsDirectoryAddress = coreDeploymentData.addresses.avsDirectory;
-// todo: rename
-const rangeExitManagerServiceAddress =
-  avsDeploymentData.addresses.helloWorldServiceManager;
+const rangeExitManagerServiceAddress = avsDeploymentData.addresses.service;
 const ecdsaStakeRegistryAddress = avsDeploymentData.addresses.stakeRegistry;
 
 // Load ABIs
@@ -170,39 +172,22 @@ const discoverValidPositions = async (
   return cfgIds;
 };
 
-/**
- * 
- @notice Determine search bounds for tick thresholds between lastTick and currentTick.
- @notice Rules:
- * - If price moved up (current > last): search [lastTick, currentTick)
- * - If price moved down (current < last): search (currentTick, lastTick]
- * - If unchanged: return empty range
- */
-const computeThresholdBounds = (
-  currentTick: number,
-  lastTick: number
-): { min: string | number; max: string | number; empty: boolean } => {
-  if (currentTick === lastTick) {
-    return { min: 0, max: 0, empty: true };
-  }
-
-  if (currentTick > lastTick) {
-    // [last, current)
-    return { min: lastTick, max: `(${currentTick}`, empty: false };
-  }
-
-  // (current, last]
-  return { min: `(${currentTick}`, max: lastTick, empty: false };
-};
-
 const registerOperator = async () => {
   // Registers as an Operator in EigenLayer.
 
   try {
+    const nonce = await provider.getTransactionCount(
+      walletUnmanaged.address,
+      "pending"
+    );
+
     const tx1 = await delegationManager.registerAsOperator(
       "0x0000000000000000000000000000000000000000", // initDelegationApprover
       0, // allocationDelay
-      "" // metadataURI
+      "", // metadataURI
+      {
+        nonce: nonce,
+      }
     );
 
     await tx1.wait();
@@ -217,6 +202,7 @@ const registerOperator = async () => {
       );
     } else {
       console.error("Error in registering as operator:", error);
+      throw error;
     }
   }
 
@@ -260,21 +246,29 @@ const registerOperator = async () => {
   try {
     // Register Operator to AVS
     // Per release here: https://github.com/Layr-Labs/eigenlayer-middleware/blob/v0.2.1-mainnet-rewards/src/unaudited/ECDSAStakeRegistry.sol#L49
-    const tx2 = await ecdsaRegistryContract.registerOperatorWithSignature(
-      operatorSignatureWithSaltAndExpiry,
-      walletUnmanaged.address,
-      {
-        nonce: nonce,
-      }
-    );
-    await tx2.wait();
+    const tx2 = await walletClient.writeContract({
+      address: ecdsaStakeRegistryAddress,
+      abi: ecdsaRegistryABI,
+      functionName: "registerOperatorWithSignature",
+      account: account,
+      chain,
+      args: [operatorSignatureWithSaltAndExpiry, walletUnmanaged.address],
+    });
+
+    console.log("Tx2:", tx2);
+    await waitForTransactionReceipt(walletClient, {
+      hash: tx2,
+    });
     console.log("Operator registered on AVS successfully");
   } catch (err) {
-    if (err.info.error.data === "0x42ee68b5") {
-      // OperatorAlreadyRegistered()
+    if (
+      "metaMessages" in err &&
+      err.metaMessages.toString().includes("OperatorAlreadyRegistered")
+    ) {
       console.log("Operator already registered, proceeding");
     } else {
-      console.error("Error in registering as operator:", err);
+      console.error("Error in registering as operator with signature:", err);
+      throw err;
     }
   }
 };
@@ -312,21 +306,48 @@ const signAndRespondToTask = async (
     ["address[]", "bytes[]", "uint32"],
     [operators, signatures, task.createdBlock]
   );
+  console.log(
+    "Signed task, sending withdrawLiquidity tx to RangeExitManagerService"
+  );
 
-  writeContract(walletClient, {
+  const args = [
+    task as unknown,
+    BigInt(taskIndex),
+    configs as unknown[],
+    signedTask,
+  ];
+
+  const nonce = await getTransactionCount(walletClient, {
+    address: account.address,
+  });
+  const hash = await writeContract(walletClient, {
     address: rangeExitManagerServiceAddress,
     abi: rangeExitManagerServiceABI,
     functionName: "withdrawLiquidity",
     account: account,
-    chain,
-    args: [task as unknown, taskIndex, configs as unknown[], signedTask],
+    args: args,
+    nonce: nonce,
   });
+
+  const receipt = await waitForTransactionReceipt(walletClient, {
+    hash,
+  });
+
+  console.log("WithdrawLiquidity tx sent to RangeExitManagerService", receipt);
+
+  console.log("WithdrawLiquidity tx sent to RangeExitManagerService");
 };
 
 const monitorNewTasks = async () => {
   if (!hook) throw new Error("No hook contract instance");
   if (!rangeExitManagerService)
     throw new Error("No rangeExitManagerService contract instance");
+  console.log("Monitoring new tasks");
+  console.log(
+    "RangeExitManagerService address:",
+    rangeExitManagerServiceAddress
+  );
+  console.log("Hook address:", hookAddress);
 
   rangeExitManagerService.on(
     "WithdrawNeeded",
@@ -342,9 +363,13 @@ const monitorNewTasks = async () => {
 
       const currentTick = await hook["getCurrentTick(bytes32)"](poolId);
 
+      const tickSpacing = Number(
+        (poolKey && (poolKey.tickSpacing ?? poolKey[3])) ?? 0
+      );
       const { min, max, empty } = computeThresholdBounds(
         Number(currentTick),
-        Number(lastTick)
+        Number(lastTick),
+        tickSpacing
       );
 
       if (empty) {
@@ -362,7 +387,9 @@ const monitorNewTasks = async () => {
       );
 
       const configs = await getConfigsByIds(cfgIds);
+      console.log("Configs length:", configs.length);
       const normalizedTask = normalizeTaskFromEvent(task);
+      console.log("Normalized task:", normalizedTask);
 
       try {
         await signAndRespondToTask(normalizedTask, taskIndex, configs);
@@ -423,72 +450,32 @@ const monitorNewTasks = async () => {
     "PositionBurned",
     async (positionId, owner, config: UserConfig) => {
       console.log("PositionBurned received:", { positionId, owner, config });
-      const strategy = Number(config.strategyId);
 
-      if (strategy === StrategyId.None) {
-        console.log(
-          "Strategy None: removing config from storage",
-          positionId.toString()
+      try {
+        const hash = await writeContract(walletClient, {
+          address: rangeExitManagerServiceAddress,
+          abi: rangeExitManagerServiceABI,
+          functionName: "setPositionManaged",
+          account: account,
+          chain,
+          args: [positionId.toString(), false],
+        });
+        const receipt = await waitForTransactionReceipt(walletClient, {
+          hash,
+        });
+
+        await removeConfig(positionId.toString());
+        console.log("Position burned and unmanaged confirmed", {
+          positionId: positionId.toString(),
+          receipt: receipt,
+        });
+      } catch (e) {
+        console.error(
+          "Setting position managed status after burn to false failed:",
+          e
         );
-
-        try {
-          const hash = await writeContract(walletClient, {
-            address: rangeExitManagerServiceAddress,
-            abi: rangeExitManagerServiceABI,
-            functionName: "setPositionManaged",
-            account: account,
-            chain,
-            args: [positionId.toString(), false],
-          });
-          const receipt = await waitForTransactionReceipt(walletClient, {
-            hash,
-          });
-
-          await removeConfig(positionId.toString());
-          console.log("Position burned and unmanaged confirmed", {
-            positionId: positionId.toString(),
-            receipt: receipt,
-          });
-        } catch (e) {
-          console.error(
-            "Setting position managed status after burn to false failed:",
-            e
-          );
-        }
-        return;
       }
-
-      if (strategy === StrategyId.Asset0ToAave) {
-        console.log("Supplying asset 0 to aave");
-        try {
-          // todo: add logic to supply to aave
-          const hash = await writeContract(walletClient, {
-            address: rangeExitManagerServiceAddress,
-            abi: rangeExitManagerServiceABI,
-            functionName: "setPositionManaged",
-            account: account,
-            chain,
-            args: [positionId.toString(), false],
-          });
-          const receipt = await waitForTransactionReceipt(walletClient, {
-            hash,
-          });
-
-          await removeConfig(positionId.toString());
-          console.log("Position supplied to aave and unmanaged confirmed", {
-            positionId: positionId.toString(),
-            receipt: receipt,
-          });
-        } catch (e) {
-          console.error(
-            "Setting position managed status after burn to false failed:",
-            e
-          );
-        }
-        return;
-      }
-
-      console.log("Unknown strategy, leaving config as-is");
+      return;
     }
   );
 
@@ -496,7 +483,13 @@ const monitorNewTasks = async () => {
 };
 
 const main = async () => {
-  await registerOperator();
+  try {
+    await registerOperator();
+  } catch (error) {
+    console.error(error);
+    process.exit(1);
+  }
+
   monitorNewTasks().catch((error) => {
     console.error("Error monitoring tasks:", error);
   });

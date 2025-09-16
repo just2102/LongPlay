@@ -3,8 +3,9 @@
   "version": "0.0.1",
   "type": "module",
   "scripts": {
-    "deployAll": "forge script script/DeployEigenLayerCore.s.sol --rpc-url http://localhost:8545 --broadcast --optimize --optimizer-runs 200 --via-ir && forge script script/HelloWorldDeployer.s.sol --rpc-url http://localhost:8545 --broadcast --optimize --optimizer-runs 200 --via-ir",
-    "operator": "npx tsx operator/index.ts"
+    "deployAll": "forge script script/DeployEigenLayerCore.s.sol --rpc-url http://localhost:8545 --broadcast --optimize --optimizer-runs 200 --via-ir && forge script script/ServiceDeployer.s.sol --rpc-url http://localhost:8545 --broadcast --optimize --optimizer-runs 200 --via-ir",
+    "operator": "npx tsx operator/index.ts",
+    "test:bounds": "npx tsx operator/bounds.test.ts"
   },
   "dependencies": {
     "dotenv": "^17.2.2",
