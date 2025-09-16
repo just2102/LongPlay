@@ -22,8 +22,6 @@ import {Currency, CurrencyLibrary} from "v4-core/types/Currency.sol";
 import {ReentrancyGuard} from "solmate/src/utils/ReentrancyGuard.sol";
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 
-import {Test, console} from "forge-std/Test.sol";
-
 contract LPRebalanceHook is BaseHook, ReentrancyGuard, Ownable {
     using StateLibrary for IPoolManager;
 

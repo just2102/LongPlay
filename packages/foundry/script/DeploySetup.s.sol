@@ -152,8 +152,8 @@ contract DeploySetup is Script {
         console.log("Deploying and approving tokens");
         address permit2 = vm.envOr({name: "PERMIT2", defaultValue: DEFAULT_PERMIT2});
 
-        MockERC20 tokenA = new MockERC20("TokenA", "TKNA", 18);
-        MockERC20 tokenB = new MockERC20("TokenB", "TKNB", 18);
+        MockERC20 tokenA = new MockERC20("TokenA", "TKNA", 6);
+        MockERC20 tokenB = new MockERC20("TokenB", "TKNB", 6);
 
         // Mint ample balances to broadcaster
         tokenA.mint(msg.sender, 1_000_000 ether);

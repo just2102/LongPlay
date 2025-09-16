@@ -117,6 +117,7 @@ contract DeploySetupUSDC is Script, StdCheats {
         console2.log("Deployment written to:", path);
     }
 
+    // @notice Deploy a pool with an ERC20 token and USDC
     function deployPool() internal {
         console.log("Deploying pool");
         uint24 fee = uint24(vm.envOr({name: "POOL_FEE", defaultValue: uint256(3000)}));
@@ -127,6 +128,7 @@ contract DeploySetupUSDC is Script, StdCheats {
         console.log("Pool initialized");
     }
 
+    // @notice Deploy a token and prepare USDC balances + approvals
     function deployAndPrepareTokenAndUSDC(address usdcAddr) internal returns (MockERC20 tokenA, IERC20 usdc) {
         console.log("Deploying TokenA and preparing USDC balances + approvals");
         address permit2 = vm.envOr({name: "PERMIT2", defaultValue: DEFAULT_PERMIT2});
@@ -134,7 +136,7 @@ contract DeploySetupUSDC is Script, StdCheats {
         tokenA = new MockERC20("TokenA", "TKNA", 6);
         usdc = IERC20(usdcAddr);
 
-        tokenA.mint(USER, 1_000_000 ether);
+        tokenA.mint(USER, 1_000 ether);
 
         // Approvals to Permit2 and sub-approve POSM
         tokenA.approve(permit2, type(uint256).max);
