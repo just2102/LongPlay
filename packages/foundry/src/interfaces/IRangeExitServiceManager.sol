@@ -12,6 +12,7 @@ interface IRangeExitServiceManager {
         Asset0ToAave
     }
 
+    // @notice Custom pool key for the AVS, can be extended to pass additional data
     struct PoolKeyCustom {
         /// @notice The lower currency of the pool, sorted numerically
         address currency0;

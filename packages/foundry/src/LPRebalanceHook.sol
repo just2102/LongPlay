@@ -30,13 +30,15 @@ contract LPRebalanceHook is BaseHook, ReentrancyGuard, Ownable {
     error OwnerDoesNotOwnThePosition();
     error PositionAlreadyWithdrawn();
 
-    mapping(int24 tickThreshold => uint256[] positionIds) public positions;
+    event ServiceNotSet();
+
     mapping(uint256 positionId => bool) public isWithdrawn;
-    mapping(uint256 positionId => UserConfig config) public userConfigs;
 
     mapping(PoolId poolId => int24 lastTick) public lastTicks;
 
     IRangeExitServiceManager public service;
+
+    uint128 TASK_DEADLINE = 600;
 
     modifier onlyService() {
         require(msg.sender == address(service), "Not allowed");
@@ -47,6 +49,10 @@ contract LPRebalanceHook is BaseHook, ReentrancyGuard, Ownable {
 
     function setService(address _service) external onlyOwner {
         service = IRangeExitServiceManager(_service);
+    }
+
+    function setTaskDeadline(uint128 _taskDeadline) external onlyOwner {
+        TASK_DEADLINE = _taskDeadline;
     }
 
     function getHookPermissions() public pure override returns (Hooks.Permissions memory) {
@@ -73,37 +79,14 @@ contract LPRebalanceHook is BaseHook, ReentrancyGuard, Ownable {
         return this.afterInitialize.selector;
     }
 
-    // todo: replace this function with an AVS contract call
-    // that will take the required params (e.g., config, positionId)
-    // and remember the position for future management
     function _afterAddLiquidity(
-        address sender,
-        PoolKey calldata key,
-        ModifyLiquidityParams calldata params,
-        BalanceDelta delta,
-        BalanceDelta feesAccrued,
-        bytes calldata hookData
-    ) internal override returns (bytes4, BalanceDelta) {
-        (, int24 currentTick,,) = poolManager.getSlot0(key.toId());
-
-        if (params.tickLower > currentTick) {
-            return (this.afterAddLiquidity.selector, BalanceDeltaLibrary.ZERO_DELTA);
-        }
-
-        UserConfig memory userConfig;
-        if (hookData.length > 0) {
-            (userConfig) = abi.decode(hookData, (UserConfig));
-
-            // validate position owner:
-            address owner = ERC721Permit_v4(userConfig.posM).ownerOf(userConfig.positionId);
-            if (owner != userConfig.owner) {
-                revert OwnerDoesNotOwnThePosition();
-            }
-        }
-
-        userConfigs[userConfig.positionId] = userConfig;
-        positions[userConfig.tickThreshold].push(userConfig.positionId);
-
+        address,
+        PoolKey calldata,
+        ModifyLiquidityParams calldata,
+        BalanceDelta,
+        BalanceDelta,
+        bytes calldata
+    ) internal pure override returns (bytes4, BalanceDelta) {
         return (this.afterAddLiquidity.selector, BalanceDeltaLibrary.ZERO_DELTA);
     }
 
@@ -116,35 +99,24 @@ contract LPRebalanceHook is BaseHook, ReentrancyGuard, Ownable {
         int24 lastTick = lastTicks[key.toId()];
         lastTicks[key.toId()] = currentTick;
 
-        if (currentTick > lastTick) {
-            return (this.afterSwap.selector, 0);
+        if (address(service) == address(0)) {
+            emit ServiceNotSet();
         }
 
-        if (currentTick < lastTick) {
-            console.log("Service address: ", address(service));
-            if (address(service) != address(0)) {
-                // todo: change deadline to a smaller value in production (e.g., 60)
-                uint256 deadline = block.timestamp + 600;
-                IRangeExitServiceManager.PoolKeyCustom memory poolKeyCustom = IRangeExitServiceManager.PoolKeyCustom({
-                    currency0: Currency.unwrap(key.currency0),
-                    currency1: Currency.unwrap(key.currency1),
-                    fee: key.fee,
-                    tickSpacing: key.tickSpacing,
-                    hookAddress: address(this)
-                });
-                PoolId poolId = key.toId();
-                bytes32 taskHash = service.createNewTask(poolKeyCustom, lastTick, deadline, poolId);
-                console.log("Task successfully sent to service. TaskHash:");
-                console.logBytes32(taskHash);
-            }
+        if (address(service) != address(0)) {
+            uint256 deadline = block.timestamp + TASK_DEADLINE;
+            IRangeExitServiceManager.PoolKeyCustom memory poolKeyCustom = IRangeExitServiceManager.PoolKeyCustom({
+                currency0: Currency.unwrap(key.currency0),
+                currency1: Currency.unwrap(key.currency1),
+                fee: key.fee,
+                tickSpacing: key.tickSpacing,
+                hookAddress: address(this)
+            });
+            PoolId poolId = key.toId();
+            service.createNewTask(poolKeyCustom, lastTick, deadline, poolId);
         }
 
         return (this.afterSwap.selector, 0);
-    }
-
-    // todo: approve to AVS contract
-    function approveLpTokens(address positionManager, uint256 tokenId) external {
-        ERC721Permit_v4(positionManager).approve(address(this), tokenId);
     }
 
     function getLowerUsableTick(int24 tick, int24 tickSpacing) public pure returns (int24) {

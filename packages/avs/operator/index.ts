@@ -323,10 +323,6 @@ const signAndRespondToTask = async (
   });
 };
 
-// Flow: price change on Uniswap
-// 1) listen to hook WithdrawNeeded
-// 2) determine valid positions via database query
-// 3) call AVS contract to modify positions (batch)
 const monitorNewTasks = async () => {
   if (!hook) throw new Error("No hook contract instance");
   if (!rangeExitManagerService)
@@ -390,28 +386,6 @@ const monitorNewTasks = async () => {
       });
 
       try {
-        const hash = await writeContract(walletClient, {
-          address: rangeExitManagerServiceAddress,
-          abi: rangeExitManagerServiceABI,
-          functionName: "setPositionManaged",
-          account: account,
-          chain,
-          args: [positionId, true],
-        });
-
-        const receipt = await waitForTransactionReceipt(walletClient, {
-          hash,
-        });
-
-        console.log("[avs] setPositionManaged confirmed", {
-          positionId: positionId.toString(),
-          receipt: receipt,
-        });
-      } catch (e) {
-        console.error("[avs] setPositionManaged failed:", e);
-      }
-
-      try {
         await saveConfig({
           owner: config.owner,
           positionId: positionId.toString(),
@@ -435,37 +409,12 @@ const monitorNewTasks = async () => {
       console.log("DelegationCancelled received:", { positionId, posM });
 
       try {
-        const hash = await writeContract(walletClient, {
-          address: rangeExitManagerServiceAddress,
-          abi: rangeExitManagerServiceABI,
-          functionName: "setPositionManaged",
-          account: account,
-          chain,
-          args: [positionId.toString(), false],
+        await removeConfig(positionId.toString());
+        console.log("[avs] delegation cancelled confirmed", {
+          positionId: positionId.toString(),
         });
-
-        const receipt = await waitForTransactionReceipt(walletClient, {
-          hash,
-        });
-
-        const isStillManaged = await readContract(walletClient, {
-          address: rangeExitManagerServiceAddress,
-          abi: rangeExitManagerServiceABI,
-          functionName: "isPositionManaged",
-          account: account,
-          args: [positionId.toString()],
-        });
-        if (!isStillManaged) {
-          await removeConfig(positionId.toString());
-          console.log("[avs] setPositionManaged to false confirmed", {
-            positionId: positionId.toString(),
-            receipt: receipt,
-          });
-        } else {
-          // addToPendingQueue, process later
-        }
       } catch (e) {
-        console.error("[avs] setPositionManaged to false failed:", e);
+        console.error("[avs] delegation cancelled failed:", e);
       }
     }
   );

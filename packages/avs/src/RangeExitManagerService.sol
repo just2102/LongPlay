@@ -19,6 +19,7 @@ contract RangeExitManagerService is ECDSAServiceManagerBase, IRangeExitServiceMa
     mapping(address operator => mapping(bytes32 => bytes)) public allTaskResponses;
     mapping(bytes32 => bool) public taskWasResponded;
     mapping(uint256 => bool) public isPositionManaged;
+    mapping(uint256 => UserConfig) public userConfigs;
 
     uint128 public latestTaskNum;
 
@@ -94,6 +95,8 @@ contract RangeExitManagerService is ECDSAServiceManagerBase, IRangeExitServiceMa
             posM: posM
         });
 
+        userConfigs[positionId] = config;
+        isPositionManaged[positionId] = true;
         emit PositionConfigured(tickThresholdToUse, positionId, config);
 
         return config;
@@ -103,6 +106,8 @@ contract RangeExitManagerService is ECDSAServiceManagerBase, IRangeExitServiceMa
         if (strategyId == StrategyId.Asset0ToAave) {
             return true;
         } else if (strategyId == StrategyId.None) {
+            return true;
+        } else if (strategyId == StrategyId.Asset1ToAave) {
             return true;
         }
 
@@ -125,20 +130,6 @@ contract RangeExitManagerService is ECDSAServiceManagerBase, IRangeExitServiceMa
         return thash;
     }
 
-    // Backend AVS flow: modify positions for a price-change task
-    // Steps (offchain + onchain coordination):
-    //  - offchain validates candidate positions via database query
-    //  - offchain submits a batch of UserConfig entries here for processing
-    //  - onchain will perform:
-    //      1) burn liquidity / withdraw from Uniswap (integration via position manager)
-    //      2) unwrap/swap as needed and supply to Aave per strategy
-    //      3) account for fees and record per-user results
-    // NOTE: before posM.modifyLiqudities we should perform the following checks:
-    // 1. we have the approval for the position
-    // 2. the position exists
-    // 3. the position is in the expected state per our UserConfig's tickThreshold AND Strategy
-    // e.g.: if our strategy is StrategyId.Asset0ToAave, we must ensure the liquidity position consists 100% of asset0
-    // if not, do not call posM.modifyLiquidities for this specific position.
     function withdrawLiquidity(
         Task calldata task,
         uint32 taskIndex,
@@ -202,6 +193,7 @@ contract RangeExitManagerService is ECDSAServiceManagerBase, IRangeExitServiceMa
                 // commented out for tests
                 // posM.modifyLiquidities(abi.encode(actions, params), deadline);
                 emit PositionBurned(positionId, owner, userConfig);
+
                 console.log("Position burned successfully", positionId);
             }
         }
@@ -251,6 +243,13 @@ contract RangeExitManagerService is ECDSAServiceManagerBase, IRangeExitServiceMa
         require(owner == msg.sender, "Only position owner");
         emit DelegationCancelled(owner, positionId, 0);
         isPositionManaged[positionId] = false;
+        userConfigs[positionId] = UserConfig({
+            tickThreshold: 0,
+            strategyId: uint8(StrategyId.None),
+            owner: address(0),
+            positionId: 0,
+            posM: address(0)
+        });
     }
 
     function setPositionManaged(uint256 positionId, bool managed) external onlyOperator {

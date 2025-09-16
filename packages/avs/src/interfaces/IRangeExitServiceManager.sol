@@ -25,7 +25,8 @@ interface IRangeExitServiceManager {
 
     enum StrategyId {
         None,
-        Asset0ToAave
+        Asset0ToAave,
+        Asset1ToAave
     }
 
     struct UserConfig {

@@ -23,4 +23,5 @@ export interface Task {
 export const StrategyId = {
   None: 0,
   Asset0ToAave: 1,
+  Asset1ToAave: 2,
 } as const;
