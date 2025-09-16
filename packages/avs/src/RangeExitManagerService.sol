@@ -8,10 +8,12 @@ import {console} from "forge-std/console.sol";
 import {IRangeExitServiceManager} from "./interfaces/IRangeExitServiceManager.sol";
 import {IPositionManagerMinimal} from "./interfaces/IPositionManagerMinimal.sol";
 import {ILPRebalanceHook} from "./interfaces/ILPRebalanceHook.sol";
+import {IPool} from "./interfaces/IAavePool.sol";
 import {Actions} from "./libraries/Actions.sol";
+import {DataTypes} from "./libraries/AaveDataTypes.sol";
+
 import {ECDSAUpgradeable} from "@openzeppelin-upgrades/contracts/utils/cryptography/ECDSAUpgradeable.sol";
 import {IERC1271Upgradeable} from "@openzeppelin-upgrades/contracts/interfaces/IERC1271Upgradeable.sol";
-import {IPool} from "./interfaces/IAavePool.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
@@ -27,6 +29,7 @@ contract RangeExitManagerService is ECDSAServiceManagerBase, IRangeExitServiceMa
     mapping(uint256 => bool) public isPositionWithdrawn;
 
     uint128 public latestTaskNum;
+    uint256 public SERVICE_FEE;
 
     ILPRebalanceHook public HOOK;
     IPool public AAVE_POOL;
@@ -66,6 +69,10 @@ contract RangeExitManagerService is ECDSAServiceManagerBase, IRangeExitServiceMa
         AAVE_POOL = IPool(_poolAddress);
     }
 
+    function setServiceFee(uint256 _serviceFee) external onlyOwner {
+        SERVICE_FEE = _serviceFee;
+    }
+
     function initialize(address initialOwner, address _rewardsInitiator, address _hookAddress, address _aavePoolAddress)
         external
         initializer
@@ -73,6 +80,7 @@ contract RangeExitManagerService is ECDSAServiceManagerBase, IRangeExitServiceMa
         __ServiceManagerBase_init(initialOwner, _rewardsInitiator);
         HOOK = ILPRebalanceHook(_hookAddress);
         AAVE_POOL = IPool(_aavePoolAddress);
+        SERVICE_FEE = 0.0001 ether;
     }
 
     // These are just to comply with IServiceManager interface
@@ -91,11 +99,14 @@ contract RangeExitManagerService is ECDSAServiceManagerBase, IRangeExitServiceMa
         StrategyId strategyId,
         uint256 positionId,
         address posM,
-        int24 tickSpacing
-    ) external returns (UserConfig memory) {
+        int24 tickSpacing,
+        address currency0,
+        address currency1
+    ) external payable returns (UserConfig memory) {
+        require(msg.value >= SERVICE_FEE, "Insufficient service fee");
         address positionOwner = IPositionManagerMinimal(posM).ownerOf(positionId);
         require(positionOwner == msg.sender, UserNotPositionOwner(positionOwner, msg.sender));
-        require(isStrategyIdValid(strategyId), "Invalid strategy id");
+        require(isStrategyValid(strategyId, currency0, currency1), "Invalid strategy or currencies");
         // todo: replace isApprovedForAll with isApprovedForPosition
         bool isApproved = IPositionManagerMinimal(posM).isApprovedForAll(positionOwner, address(this));
         require(isApproved, "Position is not approved for the AVS");
@@ -116,13 +127,17 @@ contract RangeExitManagerService is ECDSAServiceManagerBase, IRangeExitServiceMa
         return config;
     }
 
-    function isStrategyIdValid(StrategyId strategyId) internal pure returns (bool) {
+    function isStrategyValid(StrategyId strategyId, address currency0, address currency1)
+        internal
+        view
+        returns (bool)
+    {
         if (strategyId == StrategyId.Asset0ToAave) {
-            return true;
+            return isCurrencySuppliableAave(currency0);
         } else if (strategyId == StrategyId.None) {
-            return true;
+            return false;
         } else if (strategyId == StrategyId.Asset1ToAave) {
-            return true;
+            return isCurrencySuppliableAave(currency1);
         }
 
         return false;
@@ -213,7 +228,7 @@ contract RangeExitManagerService is ECDSAServiceManagerBase, IRangeExitServiceMa
         require(magicValue == isValidSignatureResult, "Invalid signature");
     }
 
-    function getBalancesBefore(address currency0, address currency1) internal returns (uint256, uint256) {
+    function getBalancesBefore(address currency0, address currency1) internal view returns (uint256, uint256) {
         uint256 b0Before;
         uint256 b1Before;
 
@@ -305,16 +320,33 @@ contract RangeExitManagerService is ECDSAServiceManagerBase, IRangeExitServiceMa
 
         if (userConfig.strategyId == uint8(StrategyId.Asset0ToAave) && r0 > 0) {
             t0.safeApprove(address(AAVE_POOL), r0);
-            AAVE_POOL.supply(currency0, r0, owner, 0);
+            try AAVE_POOL.supply(currency0, r0, owner, 0) {
+                emit SupplySuccess(currency0, r0, owner);
+            } catch {
+                emit SupplyFailed(currency0, r0, owner);
+            }
             if (r1 > 0) t1.safeTransfer(owner, r1);
         } else if (userConfig.strategyId == uint8(StrategyId.Asset1ToAave) && r1 > 0) {
             t1.safeApprove(address(AAVE_POOL), r1);
-            AAVE_POOL.supply(currency1, r1, owner, 0);
+            try AAVE_POOL.supply(currency1, r1, owner, 0) {
+                emit SupplySuccess(currency1, r1, owner);
+            } catch {
+                emit SupplyFailed(currency1, r1, owner);
+            }
             if (r0 > 0) t0.safeTransfer(owner, r0);
         } else {
-            if (r0 > 0) t0.safeTransfer(owner, r0);
-            if (r1 > 0) t1.safeTransfer(owner, r1);
+            return sendTokensToOwner(r0, r1, t0, t1, owner);
         }
+    }
+
+    function isCurrencySuppliableAave(address currency) public view returns (bool) {
+        DataTypes.ReserveConfigurationMap memory reserveConfig = AAVE_POOL.getConfiguration(currency);
+        return reserveConfig.data != 0;
+    }
+
+    function sendTokensToOwner(uint256 r0, uint256 r1, IERC20 t0, IERC20 t1, address owner) internal {
+        if (r0 > 0) t0.safeTransfer(owner, r0);
+        if (r1 > 0) t1.safeTransfer(owner, r1);
     }
 
     function slashOperator(Task calldata task, uint32 taskIndex, address operator) external {

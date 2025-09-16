@@ -479,6 +479,20 @@ const monitorNewTasks = async () => {
     }
   );
 
+  rangeExitManagerService.on(
+    "SupplySuccess",
+    async (currency, amount, owner) => {
+      console.log("SupplySuccess received:", { currency, amount, owner });
+    }
+  );
+
+  rangeExitManagerService.on(
+    "SupplyFailed",
+    async (currency, amount, owner) => {
+      console.log("SupplyFailed received:", { currency, amount, owner });
+    }
+  );
+
   console.log("Monitoring for events...");
 };
 

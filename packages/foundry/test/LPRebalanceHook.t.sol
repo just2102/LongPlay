@@ -63,7 +63,6 @@ contract LPRebalanceHookTest is Test, Deployers {
         mockRouter = new MockV4Router(manager);
 
         deployHook();
-        // hook.setService(SERVICE);
 
         deployTokens();
         // Approve Permit2 and then sub-approve POSM as spender via Permit2
@@ -128,9 +127,36 @@ contract LPRebalanceHookTest is Test, Deployers {
         vm.prank(USER);
         ERC721Permit_v4(address(posM)).setApprovalForAll(address(SERVICE), true);
 
+        uint256 serviceFee = IRangeExitServiceManager(SERVICE).SERVICE_FEE();
+
+        address WETH = 0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2;
+        address USDT = 0xdAC17F958D2ee523a2206206994597C13D831ec7;
+
         vm.prank(USER);
-        IRangeExitServiceManager(SERVICE).configurePosition(
-            -120, IRangeExitServiceManager.StrategyId.Asset0ToAave, positionId, address(posM), poolKey.tickSpacing
+        IRangeExitServiceManager(SERVICE).configurePosition{value: serviceFee}(
+            -120,
+            IRangeExitServiceManager.StrategyId.Asset0ToAave,
+            positionId,
+            address(posM),
+            poolKey.tickSpacing,
+            WETH,
+            USDT
+        );
+    }
+
+    function test_ConfigurePosition_InvalidStrategy() external {
+        uint256 positionId = posM.nextTokenId() - 1;
+        uint256 serviceFee = IRangeExitServiceManager(SERVICE).SERVICE_FEE();
+
+        vm.expectRevert("Invalid strategy or currencies");
+        IRangeExitServiceManager(SERVICE).configurePosition{value: serviceFee}(
+            -120,
+            IRangeExitServiceManager.StrategyId.None,
+            positionId,
+            address(posM),
+            poolKey.tickSpacing,
+            address(0),
+            address(0)
         );
     }
 
@@ -216,22 +242,7 @@ contract LPRebalanceHookTest is Test, Deployers {
         // allow the hook to use our NFTs
         ERC721Permit_v4(address(posM)).setApprovalForAll(address(hook), true);
 
-        int24 tickBeforeSwap = getCurrentTick();
-
         sellSomeToken0(0.05 ether);
-
-        uint256 balanceOfToken0BeforeDoStuff = MockERC20(Currency.unwrap(token0)).balanceOf(USER);
-
-        // we should now be able to withdraw the liquidity via the AVS contract
-        // the funds should go back to the owner of the NFT.
-        // hook.withdrawLiquidity(poolKey, address(posM), tickBeforeSwap);
-
-        // // nft should be burned
-        // vm.expectRevert("NOT_MINTED");
-        // ERC721Permit_v4(address(posM)).ownerOf(positionId);
-
-        // uint256 balanceOfToken0AfterDoStuff = MockERC20(Currency.unwrap(token0)).balanceOf(USER);
-        // assertGt(balanceOfToken0AfterDoStuff, balanceOfToken0BeforeDoStuff);
 
         vm.stopPrank();
     }

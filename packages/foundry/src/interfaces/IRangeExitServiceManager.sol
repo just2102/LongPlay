@@ -6,6 +6,7 @@ import {UserConfig} from "../libraries/Config.sol";
 
 interface IRangeExitServiceManager {
     function HOOK() external view returns (address);
+    function SERVICE_FEE() external view returns (uint256);
 
     enum StrategyId {
         None,
@@ -44,6 +45,8 @@ interface IRangeExitServiceManager {
         StrategyId strategyId,
         uint256 positionId,
         address posM,
-        int24 tickSpacing
-    ) external returns (UserConfig memory);
+        int24 tickSpacing,
+        address currency0,
+        address currency1
+    ) external payable returns (UserConfig memory);
 }

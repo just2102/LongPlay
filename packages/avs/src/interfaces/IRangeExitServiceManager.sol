@@ -46,7 +46,8 @@ interface IRangeExitServiceManager {
         bytes32 poolId
     );
     event TaskResponded(bytes32 indexed taskHash, Task task, address operator);
-
+    event SupplySuccess(address indexed currency, uint256 amount, address indexed owner);
+    event SupplyFailed(address indexed currency, uint256 amount, address indexed owner);
     // @notice Emitted when a new position is configured
     event PositionConfigured(int24 indexed tickThreshold, uint256 indexed positionId, UserConfig config);
     // Emitted when the operator requests the AVS to modify a batch of positions for a task
