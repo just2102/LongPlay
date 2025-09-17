@@ -40,7 +40,7 @@ export const AddLiquidityWidget = () => {
     pool?.currency0 && pool?.currency1 ? tickToPrice(pool?.currency0, pool?.currency1, pool?.tickCurrent) : undefined;
 
   return (
-    <div className="flex flex-col gap-4">
+    <div className="flex flex-col gap-4 pt-8">
       <div className="max-w-md w-full border rounded-2xl bg-white border-gray-200 shadow-sm mx-auto overflow-hidden">
         <div className="flex items-center justify-between px-5 py-4 bg-gray-50 border-b border-gray-200">
           <div>
