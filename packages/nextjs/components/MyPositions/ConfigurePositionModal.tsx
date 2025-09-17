@@ -17,7 +17,7 @@ import { STRATEGY_LABELS_TO_DESCRIPTION } from "~~/types/avs.types";
 import { StepState } from "~~/types/tx-types";
 import { PositionStored, updatePosition } from "~~/utils/localStorage";
 import { ZERO_ADDRESS } from "~~/utils/scaffold-eth/common";
-import { getContractsData } from "~~/utils/scaffold-eth/contract";
+import { Contract, getContractsData } from "~~/utils/scaffold-eth/contract";
 
 interface ConfigurePositionModalProps {
   isOpen: boolean;
@@ -96,7 +96,7 @@ export const ConfigurePositionModal = ({
         tickThreshold: parsedTick,
         strategyId,
         positionId: selectedPosition.tokenId,
-        posM: getContractsData(chainId).PositionManager,
+        posM: getContractsData(chainId).PositionManager as Contract<"PositionManager">,
         tickSpacing: tickSpacing,
         currency0: baseCurrency,
         currency1: quoteCurrency,
