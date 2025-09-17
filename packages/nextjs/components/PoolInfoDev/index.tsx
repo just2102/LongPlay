@@ -27,9 +27,9 @@ export const PoolInfoDev = () => {
   return (
     <>
       {isLoading ? (
-        <div>Loading...</div>
+        <div className="animate-pulse text-sm">Loading...</div>
       ) : (
-        <div className="flex flex-col">
+        <div className="flex flex-col bg-white rounded-md p-4 border border-gray-300 shadow-md">
           <h4>Pool Id: {pool?.poolId}</h4>
           <span>Currency 0: {currency0}</span>
           <span>Currency 1: {currency1}</span>
