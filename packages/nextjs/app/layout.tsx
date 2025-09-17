@@ -6,7 +6,7 @@ import "~~/styles/globals.css";
 import { getMetadata } from "~~/utils/scaffold-eth/getMetadata";
 
 export const metadata = getMetadata({
-  title: "LongPlay",
+  title: "LongPlay — Automated Liquidity Farming",
   description: "LongPlay — Automated Liquidity Farming",
 });
 
