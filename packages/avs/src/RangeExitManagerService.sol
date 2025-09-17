@@ -181,6 +181,11 @@ contract RangeExitManagerService is ECDSAServiceManagerBase, IRangeExitServiceMa
             emit TaskResponded(thash, task, operators[i]);
         }
 
+        taskWasResponded[thash] = true;
+        bytes4 isValidSignatureResult =
+            ECDSAStakeRegistry(stakeRegistry).isValidSignature(ethSignedMessageHash, signature);
+        require(magicValue == isValidSignatureResult, "Invalid signature");
+
         emit PositionsModificationRequested(thash, configs.length);
 
         address currency0 = task.poolKey.currency0;
@@ -217,12 +222,6 @@ contract RangeExitManagerService is ECDSAServiceManagerBase, IRangeExitServiceMa
                 emit PositionBurned(positionId, owner, userConfig);
             }
         }
-
-        taskWasResponded[thash] = true;
-        bytes4 isValidSignatureResult =
-            ECDSAStakeRegistry(stakeRegistry).isValidSignature(ethSignedMessageHash, signature);
-
-        require(magicValue == isValidSignatureResult, "Invalid signature");
     }
 
     function getBalancesBefore(address currency0, address currency1) internal view returns (uint256, uint256) {

@@ -1,0 +1,26 @@
+{
+  "lastUpdate": { "timestamp": "1758097644", "block_number": "9220825" },
+  "addresses": {
+    "proxyAdmin": "0x20c3e035a93566c0a221b59b3745d1167d91aaab",
+    "delegationManager": "0xf28a681b65d617e65452d7f40e1f66e61c0ab26f",
+    "delegationManagerImpl": "0x2f0ff9adea03ced8416c2dc95a67cf9c23ef4f41",
+    "avsDirectory": "0x14ca545271a1e8c0e936aa1d09bdfa9dcf88d203",
+    "avsDirectoryImpl": "0xa5568b73a33b12e23a68bdc02de9316a079ea568",
+    "strategyManager": "0x1fe59c5f84930e435e81261f50a9299df1682d76",
+    "strategyManagerImpl": "0xab3e05d49b3d9d79ac519ffebf13bc6de2f23f51",
+    "eigenPodManager": "0x873f6bcf6fe2b1b6f8726a3274aa58feb224271c",
+    "eigenPodManagerImpl": "0x380b59088e096e9075bf617dbbbd2669bd53e418",
+    "allocationManager": "0x532e978164e96ad517871a8eadf79b197ccc5031",
+    "allocationManagerImpl": "0xd5329f79f43be2245c76f1f2296bed66df408d0b",
+    "eigenPodBeacon": "0x29c44b254fffd44141f0e67ec72f6450f5f57071",
+    "pauserRegistry": "0x8fcc0059f45e2ed6d0382c0dceb461db55fdc5a4",
+    "pauserRegistryImpl": "0x60f6e8fada295bf09f341bd4c6357da647102a13",
+    "strategyFactory": "0x5cdd00aebf44b7a9a97c0f510236e1e6fa82068c",
+    "strategyFactoryImpl": "0x0ded5add8d9db3976721cac049c524649abeeaba",
+    "strategyBeacon": "0xf6ee098e029639bad7a8df00f026e2356256c902",
+    "rewardsCoordinator": "0x70a35f7315e127f02378db1f4c1441e6bc499b9a",
+    "rewardsCoordinatorImpl": "0x6a1895d4c5f4a3bfd341e8cdc234b70aac5e5e7f",
+    "permissionController": "0xcf210ece988169ca79a3232c56958e658d538dc5",
+    "permissionControllerImpl": "0x4301f7bc190b93e5782c9c748580dcbc675a530f"
+  }
+}

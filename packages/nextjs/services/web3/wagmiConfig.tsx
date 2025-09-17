@@ -1,6 +1,6 @@
 import { wagmiConnectors } from "./wagmiConnectors";
 import { Chain, createClient, fallback, http } from "viem";
-import { hardhat, mainnet } from "viem/chains";
+import { hardhat, mainnet, sepolia } from "viem/chains";
 import { createConfig } from "wagmi";
 import scaffoldConfig, { DEFAULT_ALCHEMY_API_KEY, ScaffoldConfig } from "~~/scaffold.config";
 import { getAlchemyHttpUrl } from "~~/utils/scaffold-eth";
@@ -14,12 +14,24 @@ const mainnetFork: Chain = {
   },
 };
 
+const sepoliaChain: Chain = {
+  ...sepolia,
+  rpcUrls: {
+    default: {
+      http: ["https://ethereum-sepolia-rpc.publicnode.com"],
+    },
+  },
+};
+
 const { targetNetworks } = scaffoldConfig;
+
+const includeDevChain = process.env.NEXT_PUBLIC_DEV_MODE === "true";
+const extraChain = includeDevChain ? ([mainnetFork] as const) : ([mainnetFork] as const);
 
 // We always want to have mainnet enabled (ENS resolution, ETH price, etc). But only once.
 export const enabledChains = targetNetworks.find((network: Chain) => network.id === 1)
   ? targetNetworks
-  : ([...targetNetworks, mainnetFork] as const);
+  : ([...targetNetworks, sepoliaChain, ...extraChain] as const);
 
 export const wagmiConfig = createConfig({
   chains: enabledChains,

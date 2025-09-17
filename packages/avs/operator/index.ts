@@ -1,6 +1,6 @@
 import { ethers, NonceManager } from "ethers";
 import * as dotenv from "dotenv";
-import { StrategyId, Task, UserConfig } from "./types";
+import { Task, UserConfig } from "./types";
 import * as fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
@@ -20,7 +20,6 @@ import {
   createWalletClient,
   http,
   NonceManager as NonceManagerViem,
-  parseEther,
 } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
 import {
@@ -29,9 +28,11 @@ import {
   readContract,
   getGasPrice,
   getTransactionCount,
+  simulateContract,
+  getBlockNumber,
 } from "viem/actions";
-import { hardhat } from "viem/chains";
 import { jsonRpc } from "viem/nonce";
+import { getChain } from "./chain";
 dotenv.config();
 
 const __filename = fileURLToPath(import.meta.url);
@@ -51,7 +52,7 @@ if (!process.env.PRIVATE_KEY) {
 
 // Setup env variables
 // todo: replace ethers with viem
-const provider = new ethers.JsonRpcProvider(process.env.RPC_URL);
+const provider = new ethers.WebSocketProvider(process.env.WS_URL!);
 const walletUnmanaged = new ethers.Wallet(process.env.PRIVATE_KEY!, provider);
 const wallet = new NonceManager(walletUnmanaged);
 
@@ -61,7 +62,7 @@ const nonceManager: NonceManagerViem = createNonceManager({
 const account = privateKeyToAccount(process.env.PRIVATE_KEY! as Address, {
   nonceManager,
 });
-const chain = hardhat;
+const chain = getChain();
 
 const rpcUrl = process.env.RPC_URL! as string;
 export const walletClient = createWalletClient({
@@ -70,12 +71,10 @@ export const walletClient = createWalletClient({
   chain: chain,
 });
 
-let chainId = hardhat.id;
-
 // todo: deploy this contract
 const avsDeploymentData = JSON.parse(
   fs.readFileSync(
-    path.resolve(__dirname, `../deployments/service/${chainId}.json`),
+    path.resolve(__dirname, `../deployments/service/${chain.id}.json`),
     "utf8"
   )
 );
@@ -87,7 +86,7 @@ if (!avsDeploymentData.addresses.stakeRegistry) {
 // todo: add type-safety for ABIs
 const coreDeploymentData = JSON.parse(
   fs.readFileSync(
-    path.resolve(__dirname, `../deployments/core/${chainId}.json`),
+    path.resolve(__dirname, `../deployments/core/${chain.id}.json`),
     "utf8"
   )
 );
@@ -155,12 +154,6 @@ if (!hookAddress) {
   throw new Error("HOOK_ADDRESS not found in environment variables");
 }
 
-const positionManagerAddress = process.env.POSITION_MANAGER_ADDRESS!; // todo: keep a mapping of position managers on supported chains
-if (!positionManagerAddress) {
-  throw new Error(
-    "POSITION_MANAGER_ADDRESS not found in environment variables"
-  );
-}
 const hook = new ethers.Contract(hookAddress, hookAbi, wallet);
 
 const discoverValidPositions = async (
@@ -176,27 +169,33 @@ const registerOperator = async () => {
   // Registers as an Operator in EigenLayer.
 
   try {
-    const nonce = await provider.getTransactionCount(
-      walletUnmanaged.address,
-      "pending"
-    );
+    console.log("Requesting nonce");
+    const nonce = await getTransactionCount(walletClient, {
+      address: walletClient.account.address,
+    });
+    console.log("Nonce:", nonce);
 
-    const tx1 = await delegationManager.registerAsOperator(
-      "0x0000000000000000000000000000000000000000", // initDelegationApprover
-      0, // allocationDelay
-      "", // metadataURI
-      {
-        nonce: nonce,
-      }
-    );
+    const gasPrice = await getGasPrice(walletClient);
+    console.log("Gas price:", gasPrice);
+    const { request } = await simulateContract(walletClient, {
+      address: delegationManagerAddress, // Sepolia
+      abi: delegationManagerABI,
+      functionName: "registerAsOperator",
+      args: ["0x0000000000000000000000000000000000000000", 0, ""],
+      account,
+    });
+    const hash = await walletClient.writeContract(request);
+    const receipt = await waitForTransactionReceipt(walletClient, { hash });
+    console.log("Receipt:", receipt);
 
-    await tx1.wait();
     console.log(
       "Operator successfully registered to Core EigenLayer contracts"
     );
   } catch (error) {
-    if (error.info.error.data === "0x77e56a06") {
-      // ActivelyDelegated()
+    if (
+      "metaMessages" in error &&
+      error.metaMessages.toString().includes("ActivelyDelegated")
+    ) {
       console.log(
         "Operator already registered to Core EigenLayer contracts, proceeding"
       );
@@ -217,10 +216,17 @@ const registerOperator = async () => {
   };
 
   // Calculate the digest hash, which is a unique value representing the operator, avs, unique value (salt) and expiration date.
+
+  console.log("Requesting operator digest hash from AVS Directory contract");
+  console.log("Avs directory contract: ", avsDirectoryAddress);
+  console.log("Operator address: ", walletUnmanaged.address);
+  console.log("Avs address: ", rangeExitManagerServiceAddress);
+  console.log("Salt: ", salt);
+  console.log("Expiry: ", expiry);
   const operatorDigestHash =
     await avsDirectory.calculateOperatorAVSRegistrationDigestHash(
       walletUnmanaged.address,
-      await rangeExitManagerService.getAddress(),
+      rangeExitManagerServiceAddress,
       salt,
       expiry
     );
@@ -237,11 +243,6 @@ const registerOperator = async () => {
   ).serialized;
 
   console.log("Registering Operator to AVS Registry contract");
-
-  const nonce = await provider.getTransactionCount(
-    walletUnmanaged.address,
-    "pending"
-  );
 
   try {
     // Register Operator to AVS
@@ -302,9 +303,16 @@ const signAndRespondToTask = async (
   const signatures = [signature];
 
   const operators = [await wallet.getAddress()];
+  // Use task.createdBlock to satisfy contract equality check, but wait until head > referenceBlock for registry
+  const referenceBlock = BigInt(task.createdBlock);
+  let head = await getBlockNumber(walletClient);
+  while (head <= referenceBlock) {
+    await new Promise((r) => setTimeout(r, 1200));
+    head = await getBlockNumber(walletClient);
+  }
   const signedTask = ethers.AbiCoder.defaultAbiCoder().encode(
     ["address[]", "bytes[]", "uint32"],
-    [operators, signatures, task.createdBlock]
+    [operators, signatures, Number(referenceBlock)]
   );
   console.log(
     "Signed task, sending withdrawLiquidity tx to RangeExitManagerService"
@@ -318,8 +326,11 @@ const signAndRespondToTask = async (
   ];
 
   const nonce = await getTransactionCount(walletClient, {
-    address: account.address,
+    address: walletClient.account.address,
   });
+
+  const gasPrice = await getGasPrice(walletClient);
+
   const hash = await writeContract(walletClient, {
     address: rangeExitManagerServiceAddress,
     abi: rangeExitManagerServiceABI,
@@ -327,6 +338,9 @@ const signAndRespondToTask = async (
     account: account,
     args: args,
     nonce: nonce,
+    type: "eip1559",
+    maxFeePerGas: gasPrice * 2n,
+    maxPriorityFeePerGas: gasPrice * 2n,
   });
 
   const receipt = await waitForTransactionReceipt(walletClient, {

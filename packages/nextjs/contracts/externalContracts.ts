@@ -34,6 +34,24 @@ const externalContracts = {
       abi: uniRouterAbi,
     },
   },
+  11155111: {
+    StateView: {
+      address: "0xe1dd9c3fa50edb962e442f60dfbc432e24537e4c",
+      abi: stateViewAbi,
+    },
+    PositionManager: {
+      address: "0x429ba70129df741B2Ca2a85BC3A2a3328e5c09b4",
+      abi: posmAbi,
+    },
+    Permit2: {
+      address: "0x000000000022D473030F116dDEE9F6B43aC78BA3",
+      abi: permit2Abi,
+    },
+    UniRouter: {
+      address: "0x3A9D48AB9751398BbFa63ad67599Bb04e4BdF98b",
+      abi: uniRouterAbi,
+    },
+  },
 } as const;
 
 export default externalContracts satisfies GenericContractsDeclaration;

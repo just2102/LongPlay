@@ -47,8 +47,6 @@ export const useMintPosition = () => {
 
   const [isSendingTx, setIsSendingTx] = useState(false);
 
-  // const token1 = new Token(chainId, MOCK_CURRENCY1, 6);
-
   const { sqrtPriceX96Current, currentLiquidity, currentTick, isLoading } = usePoolData();
 
   const hookAddress = getContractsData(chainId).LPRebalanceHook.address;
@@ -321,19 +319,29 @@ export const useMintPosition = () => {
       });
       console.log("Receipt:", receipt);
 
-      const ml = receipt.logs[1];
-      const { args: args2 } = decodeEventLog({
-        abi: [modifyLiquidity],
-        data: ml.data,
-        topics: ml.topics,
-      });
+      let modifyArgs: any | null = null;
+      for (const log of receipt.logs) {
+        try {
+          const decoded = decodeEventLog({
+            abi: [modifyLiquidity],
+            data: log.data,
+            topics: log.topics,
+          });
+          modifyArgs = decoded.args as any;
+          break;
+        } catch {}
+      }
 
-      storePosition(pool.poolId, {
-        tokenId: Number(BigInt(args2.salt)),
-        tickLower: args2.tickLower,
-        tickUpper: args2.tickUpper,
-        isManaged: false,
-      });
+      if (modifyArgs) {
+        storePosition(pool.poolId, {
+          tokenId: Number(BigInt(modifyArgs.salt)),
+          tickLower: modifyArgs.tickLower,
+          tickUpper: modifyArgs.tickUpper,
+          isManaged: false,
+        });
+      } else {
+        console.warn("ModifyLiquidity event not found in receipt logs");
+      }
 
       return receipt;
     } catch (error) {

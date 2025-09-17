@@ -1,0 +1,12 @@
+{
+  "lastUpdate": { "timestamp": "1758103368", "block_number": "9221262" },
+  "addresses": {
+    "proxyAdmin": "0x9ba7478d74c9d1123a23712d53a4a90ab69b472f",
+    "service": "0x9678a3d2c56c341032c4f5b38a4bec5ddec19083",
+    "serviceImpl": "0x2465358b8b50ff72237f548be6f2fa68fabe22f4",
+    "stakeRegistry": "0x059554e01a70bc0a1a5cd5b79fc35d7852c0471c",
+    "stakeRegistryImpl": "0x0bc8f031cc9f64f80270c2c0fd6eed3ee9b44b0b",
+    "strategy": "0xc61e6cc30e27c7de43af39d958564cbd64e57de8",
+    "token": "0x9bea536831060f43e6f3a71c9022bc14f2b9ebfe"
+  }
+}

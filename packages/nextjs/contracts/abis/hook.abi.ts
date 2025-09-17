@@ -428,24 +428,6 @@ export const hookAbi = [
   },
   {
     type: "function",
-    name: "approveLpTokens",
-    inputs: [
-      {
-        name: "positionManager",
-        type: "address",
-        internalType: "address",
-      },
-      {
-        name: "tokenId",
-        type: "uint256",
-        internalType: "uint256",
-      },
-    ],
-    outputs: [],
-    stateMutability: "nonpayable",
-  },
-  {
-    type: "function",
     name: "beforeAddLiquidity",
     inputs: [
       {
@@ -868,6 +850,25 @@ export const hookAbi = [
   },
   {
     type: "function",
+    name: "getCurrentTick",
+    inputs: [
+      {
+        name: "poolId",
+        type: "bytes32",
+        internalType: "PoolId",
+      },
+    ],
+    outputs: [
+      {
+        name: "",
+        type: "int24",
+        internalType: "int24",
+      },
+    ],
+    stateMutability: "view",
+  },
+  {
+    type: "function",
     name: "getHookPermissions",
     inputs: [],
     outputs: [
@@ -953,6 +954,30 @@ export const hookAbi = [
   },
   {
     type: "function",
+    name: "getUsableTick",
+    inputs: [
+      {
+        name: "tick",
+        type: "int24",
+        internalType: "int24",
+      },
+      {
+        name: "tickSpacing",
+        type: "int24",
+        internalType: "int24",
+      },
+    ],
+    outputs: [
+      {
+        name: "",
+        type: "int24",
+        internalType: "int24",
+      },
+    ],
+    stateMutability: "pure",
+  },
+  {
+    type: "function",
     name: "isWithdrawn",
     inputs: [
       {
@@ -1017,30 +1042,6 @@ export const hookAbi = [
   },
   {
     type: "function",
-    name: "positions",
-    inputs: [
-      {
-        name: "tickThreshold",
-        type: "int24",
-        internalType: "int24",
-      },
-      {
-        name: "",
-        type: "uint256",
-        internalType: "uint256",
-      },
-    ],
-    outputs: [
-      {
-        name: "positionIds",
-        type: "uint256",
-        internalType: "uint256",
-      },
-    ],
-    stateMutability: "view",
-  },
-  {
-    type: "function",
     name: "renounceOwnership",
     inputs: [],
     outputs: [],
@@ -1074,6 +1075,19 @@ export const hookAbi = [
   },
   {
     type: "function",
+    name: "setTaskDeadline",
+    inputs: [
+      {
+        name: "_taskDeadline",
+        type: "uint128",
+        internalType: "uint128",
+      },
+    ],
+    outputs: [],
+    stateMutability: "nonpayable",
+  },
+  {
+    type: "function",
     name: "transferOwnership",
     inputs: [
       {
@@ -1084,40 +1098,6 @@ export const hookAbi = [
     ],
     outputs: [],
     stateMutability: "nonpayable",
-  },
-  {
-    type: "function",
-    name: "userConfigs",
-    inputs: [
-      {
-        name: "positionId",
-        type: "uint256",
-        internalType: "uint256",
-      },
-    ],
-    outputs: [
-      {
-        name: "tickThreshold",
-        type: "int24",
-        internalType: "int24",
-      },
-      {
-        name: "owner",
-        type: "address",
-        internalType: "address",
-      },
-      {
-        name: "positionId",
-        type: "uint256",
-        internalType: "uint256",
-      },
-      {
-        name: "posM",
-        type: "address",
-        internalType: "address",
-      },
-    ],
-    stateMutability: "view",
   },
   {
     type: "event",
@@ -1136,6 +1116,12 @@ export const hookAbi = [
         internalType: "address",
       },
     ],
+    anonymous: false,
+  },
+  {
+    type: "event",
+    name: "ServiceNotSet",
+    inputs: [],
     anonymous: false,
   },
   {

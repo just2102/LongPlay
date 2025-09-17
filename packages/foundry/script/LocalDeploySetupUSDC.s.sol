@@ -26,12 +26,11 @@ import {IV4Router} from "v4-periphery/src/interfaces/IV4Router.sol";
 
 import "forge-std/console.sol";
 
-contract DeploySetupUSDC is Script, StdCheats {
+contract LocalDeploySetupUSDC is Script, StdCheats {
     using CurrencyLibrary for Currency;
 
     address constant CREATE2_DEPLOYER = address(0x4e59b44847b379578588920cA78FbF26c0B4956C);
     address constant DEFAULT_PERMIT2 = address(0x000000000022D473030F116dDEE9F6B43aC78BA3);
-    address constant USDC_MAINNET = address(0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48);
 
     address USER = vm.envAddress("USER");
     uint160 constant SQRT_PRICE_1_1 = 79228162514264337593543950336;
@@ -56,8 +55,8 @@ contract DeploySetupUSDC is Script, StdCheats {
         usdcWhaleAddr = vm.envOr({name: "USDC_WHALE", defaultValue: address(0)});
         require(usdcWhaleAddr != address(0), "Set USDC_WHALE env var for funding");
 
-        address usdcAddr = vm.envOr({name: "USDC_TOKEN", defaultValue: USDC_MAINNET});
-        require(usdcAddr != address(0), "Set USDC_TOKEN env var");
+        address usdcAddr = vm.envOr({name: "USDC_ADDRESS", defaultValue: address(0)});
+        require(usdcAddr != address(0), "Set USDC_ADDRESS env var");
 
         {
             IERC20 usdcFunding = IERC20(usdcAddr);
