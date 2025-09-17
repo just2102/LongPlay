@@ -155,7 +155,7 @@ export const PositionCard = ({
           if (isPositionManaged) {
             handleCancelDelegation({
               positionId: position.tokenId,
-              posM: getContractsData(chainId).PositionManager,
+              posM: getContractsData(chainId).PositionManager as Contract<"PositionManager">,
             });
           } else {
             handleConfigurePosition({
