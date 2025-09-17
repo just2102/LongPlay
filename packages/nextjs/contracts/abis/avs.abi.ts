@@ -37,6 +37,19 @@ export const avsAbi = [
   },
   {
     type: "function",
+    name: "AAVE_POOL",
+    inputs: [],
+    outputs: [
+      {
+        name: "",
+        type: "address",
+        internalType: "contract IPool",
+      },
+    ],
+    stateMutability: "view",
+  },
+  {
+    type: "function",
     name: "HOOK",
     inputs: [],
     outputs: [
@@ -57,6 +70,19 @@ export const avsAbi = [
         name: "",
         type: "uint32",
         internalType: "uint32",
+      },
+    ],
+    stateMutability: "view",
+  },
+  {
+    type: "function",
+    name: "SERVICE_FEE",
+    inputs: [],
+    outputs: [
+      {
+        name: "",
+        type: "uint256",
+        internalType: "uint256",
       },
     ],
     stateMutability: "view",
@@ -190,6 +216,16 @@ export const avsAbi = [
         type: "int24",
         internalType: "int24",
       },
+      {
+        name: "currency0",
+        type: "address",
+        internalType: "address",
+      },
+      {
+        name: "currency1",
+        type: "address",
+        internalType: "address",
+      },
     ],
     outputs: [
       {
@@ -225,7 +261,7 @@ export const avsAbi = [
         ],
       },
     ],
-    stateMutability: "nonpayable",
+    stateMutability: "payable",
   },
   {
     type: "function",
@@ -491,13 +527,56 @@ export const avsAbi = [
         type: "address",
         internalType: "address",
       },
+      {
+        name: "_aavePoolAddress",
+        type: "address",
+        internalType: "address",
+      },
     ],
     outputs: [],
     stateMutability: "nonpayable",
   },
   {
     type: "function",
+    name: "isCurrencySuppliableAave",
+    inputs: [
+      {
+        name: "currency",
+        type: "address",
+        internalType: "address",
+      },
+    ],
+    outputs: [
+      {
+        name: "",
+        type: "bool",
+        internalType: "bool",
+      },
+    ],
+    stateMutability: "view",
+  },
+  {
+    type: "function",
     name: "isPositionManaged",
+    inputs: [
+      {
+        name: "",
+        type: "uint256",
+        internalType: "uint256",
+      },
+    ],
+    outputs: [
+      {
+        name: "",
+        type: "bool",
+        internalType: "bool",
+      },
+    ],
+    stateMutability: "view",
+  },
+  {
+    type: "function",
+    name: "isPositionSupplied",
     inputs: [
       {
         name: "",
@@ -522,6 +601,35 @@ export const avsAbi = [
         name: "",
         type: "uint256",
         internalType: "uint256",
+      },
+    ],
+    outputs: [
+      {
+        name: "",
+        type: "bool",
+        internalType: "bool",
+      },
+    ],
+    stateMutability: "view",
+  },
+  {
+    type: "function",
+    name: "isStrategyValid",
+    inputs: [
+      {
+        name: "strategyId",
+        type: "uint8",
+        internalType: "enum IRangeExitServiceManager.StrategyId",
+      },
+      {
+        name: "currency0",
+        type: "address",
+        internalType: "address",
+      },
+      {
+        name: "currency1",
+        type: "address",
+        internalType: "address",
       },
     ],
     outputs: [
@@ -727,6 +835,19 @@ export const avsAbi = [
   },
   {
     type: "function",
+    name: "setPoolAddress",
+    inputs: [
+      {
+        name: "_poolAddress",
+        type: "address",
+        internalType: "address",
+      },
+    ],
+    outputs: [],
+    stateMutability: "nonpayable",
+  },
+  {
+    type: "function",
     name: "setPositionManaged",
     inputs: [
       {
@@ -751,6 +872,19 @@ export const avsAbi = [
         name: "newRewardsInitiator",
         type: "address",
         internalType: "address",
+      },
+    ],
+    outputs: [],
+    stateMutability: "nonpayable",
+  },
+  {
+    type: "function",
+    name: "setServiceFee",
+    inputs: [
+      {
+        name: "_serviceFee",
+        type: "uint256",
+        internalType: "uint256",
       },
     ],
     outputs: [],
@@ -1274,6 +1408,56 @@ export const avsAbi = [
         name: "newRewardsInitiator",
         type: "address",
         indexed: false,
+        internalType: "address",
+      },
+    ],
+    anonymous: false,
+  },
+  {
+    type: "event",
+    name: "SupplyFailed",
+    inputs: [
+      {
+        name: "currency",
+        type: "address",
+        indexed: true,
+        internalType: "address",
+      },
+      {
+        name: "amount",
+        type: "uint256",
+        indexed: false,
+        internalType: "uint256",
+      },
+      {
+        name: "owner",
+        type: "address",
+        indexed: true,
+        internalType: "address",
+      },
+    ],
+    anonymous: false,
+  },
+  {
+    type: "event",
+    name: "SupplySuccess",
+    inputs: [
+      {
+        name: "currency",
+        type: "address",
+        indexed: true,
+        internalType: "address",
+      },
+      {
+        name: "amount",
+        type: "uint256",
+        indexed: false,
+        internalType: "uint256",
+      },
+      {
+        name: "owner",
+        type: "address",
+        indexed: true,
         internalType: "address",
       },
     ],

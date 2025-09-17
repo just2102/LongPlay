@@ -1,3 +1,4 @@
+import { useMemo } from "react";
 import { Button } from "../Button";
 import { CardBadge } from "./CardBadge";
 import { PositionConfigInfo } from "./PositionConfigInfo";
@@ -40,6 +41,7 @@ export const PositionCard = ({
     args: [BigInt(position.tokenId)],
     query: {
       refetchInterval: 5_000,
+      refetchOnWindowFocus: false,
     },
   });
 
@@ -50,8 +52,36 @@ export const PositionCard = ({
     args: [BigInt(position.tokenId)],
     query: {
       refetchInterval: 5_000,
+      refetchOnWindowFocus: false,
     },
   });
+
+  const { data: isPositionSupplied } = useReadContract({
+    abi: contractData.abi,
+    address: contractData.address,
+    functionName: "isPositionSupplied",
+    args: [BigInt(position.tokenId)],
+    query: {
+      refetchInterval: 5_000,
+      refetchOnWindowFocus: false,
+    },
+  });
+
+  const labelActive = useMemo(() => {
+    if (isPositionSupplied) return "Withdrawn & Supplied";
+
+    if (isPositionWithdrawn) return "Withdrawn";
+
+    return "Configured";
+  }, [isPositionSupplied, isPositionWithdrawn]);
+
+  const labelInactive = useMemo(() => {
+    if (isPositionSupplied) return "Withdrawn & Supplied";
+
+    if (isPositionWithdrawn) return "Withdrawn";
+
+    return "Not Configured";
+  }, [isPositionWithdrawn, isPositionSupplied]);
 
   return (
     <div
@@ -67,11 +97,7 @@ export const PositionCard = ({
         </div>
 
         <div className="flex flex-col items-end gap-2">
-          <CardBadge
-            isActive={isPositionManaged}
-            labelActive={isPositionWithdrawn ? "Withdrawn" : "Configured"}
-            labelInactive={isPositionWithdrawn ? "Withdrawn" : "Not Configured"}
-          />
+          <CardBadge isActive={isPositionManaged} labelActive={labelActive} labelInactive={labelInactive} />
         </div>
       </div>
 

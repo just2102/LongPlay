@@ -1,9 +1,11 @@
 import { useChainId } from "./useChainId";
-import { useAccount } from "wagmi";
+import { Currency } from "@uniswap/sdk-core";
+import { useAccount, useReadContract } from "wagmi";
 import { readContract, simulateContract, waitForTransactionReceipt, writeContract } from "wagmi/actions";
 import { wagmiConfig } from "~~/services/web3/wagmiConfig";
 import { IUserConfig, StrategyId } from "~~/types/avs.types";
 import { StepId, StepStatus } from "~~/types/tx-types";
+import { ZERO_ADDRESS } from "~~/utils/scaffold-eth/common";
 import { Contract, getContractsData } from "~~/utils/scaffold-eth/contract";
 
 type OnProgress = (step: StepId, status: StepStatus, meta?: { txHash?: `0x${string}`; error?: string }) => void;
@@ -13,12 +15,22 @@ export const useConfigurePosition = () => {
   const { address } = useAccount();
   const avsContract = getContractsData(chainId).AVS;
 
+  const { data: serviceFee } = useReadContract({
+    abi: avsContract.abi,
+    address: avsContract.address,
+    functionName: "SERVICE_FEE",
+    args: [],
+    query: { refetchOnMount: false, refetchInterval: 15_000 },
+  });
+
   const configureAction = async ({
     tickThreshold,
     strategyId,
     positionId,
     posM,
     tickSpacing,
+    currency0,
+    currency1,
     onProgress,
   }: {
     tickThreshold: number;
@@ -26,10 +38,16 @@ export const useConfigurePosition = () => {
     positionId: number;
     posM: Contract<"PositionManager">;
     tickSpacing: number;
+    currency0: Currency | undefined;
+    currency1: Currency | undefined;
     onProgress: OnProgress;
   }): Promise<IUserConfig | undefined> => {
     if (!address) {
       throw new Error("No address found");
+    }
+
+    if (!currency0 || !currency1) {
+      throw new Error("No currency found");
     }
 
     const chosenStrategyId = strategyId ?? StrategyId.Asset0ToAave;
@@ -68,8 +86,17 @@ export const useConfigurePosition = () => {
         address: avsContract.address,
         abi: avsContract.abi,
         functionName: "configurePosition",
-        args: [tickThreshold, chosenStrategyId, BigInt(positionId), posM.address, tickSpacing],
+        args: [
+          tickThreshold,
+          chosenStrategyId,
+          BigInt(positionId),
+          posM.address,
+          tickSpacing,
+          currency0.isNative ? ZERO_ADDRESS : currency0.address,
+          currency1.isNative ? ZERO_ADDRESS : currency1.address,
+        ],
         account: address,
+        value: serviceFee,
       });
 
       const hash = await writeContract(wagmiConfig, request);

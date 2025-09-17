@@ -2,10 +2,13 @@ import { useEffect, useMemo, useState } from "react";
 import { Button } from "../Button";
 import { Modal } from "../Modal";
 import { TxStepper } from "../TxStepper";
+import { StrategyInputWithLabel } from "./StrategyInputWithLabel";
 import { Currency, Price } from "@uniswap/sdk-core";
 import { nearestUsableTick } from "@uniswap/v3-sdk";
 import { priceToClosestTick, tickToPrice } from "@uniswap/v4-sdk";
 import { parseUnits } from "viem";
+import { formatEther } from "viem";
+import { useAccount, useBalance, useReadContract } from "wagmi";
 import { MOCK_POOL_ID } from "~~/contracts/deployedContracts";
 import { useChainId } from "~~/hooks/useChainId";
 import { useConfigurePosition } from "~~/hooks/useConfigurePosition";
@@ -13,6 +16,7 @@ import { StrategyId } from "~~/types/avs.types";
 import { STRATEGY_LABELS_TO_DESCRIPTION } from "~~/types/avs.types";
 import { StepState } from "~~/types/tx-types";
 import { PositionStored, updatePosition } from "~~/utils/localStorage";
+import { ZERO_ADDRESS } from "~~/utils/scaffold-eth/common";
 import { getContractsData } from "~~/utils/scaffold-eth/contract";
 
 interface ConfigurePositionModalProps {
@@ -45,6 +49,39 @@ export const ConfigurePositionModal = ({
 
   const { configureAction } = useConfigurePosition();
 
+  const { address } = useAccount();
+  const { data: nativeBalance } = useBalance({
+    address,
+    query: { enabled: !!address, refetchInterval: 10_000 },
+  });
+
+  const { data: isStrategyValid } = useReadContract({
+    abi: getContractsData(chainId).AVS.abi,
+    address: getContractsData(chainId).AVS.address,
+    functionName: "isStrategyValid",
+    args: [
+      strategyId,
+      baseCurrency ? (baseCurrency.isNative ? ZERO_ADDRESS : baseCurrency.address) : ZERO_ADDRESS,
+      quoteCurrency ? (quoteCurrency.isNative ? ZERO_ADDRESS : quoteCurrency.address) : ZERO_ADDRESS,
+    ],
+    query: {
+      enabled: !!baseCurrency && !!quoteCurrency,
+      refetchInterval: 3_500,
+    },
+  });
+
+  const { data: serviceFee } = useReadContract({
+    abi: getContractsData(chainId).AVS.abi,
+    address: getContractsData(chainId).AVS.address,
+    functionName: "SERVICE_FEE",
+    args: [],
+    query: { refetchInterval: 15_000 },
+  });
+
+  const feeWei = (serviceFee as bigint) ?? 0n;
+  const feeEth = Number(formatEther(feeWei));
+  const hasEnoughNative = nativeBalance ? nativeBalance.value >= feeWei : true;
+
   const handleSubmitConfigure = async () => {
     if (!selectedPosition) return;
     if (!tickSpacing) {
@@ -61,6 +98,8 @@ export const ConfigurePositionModal = ({
         positionId: selectedPosition.tokenId,
         posM: getContractsData(chainId).PositionManager,
         tickSpacing: tickSpacing,
+        currency0: baseCurrency,
+        currency1: quoteCurrency,
         onProgress: (step, status, meta) => {
           setStep(step, { status, ...meta });
         },
@@ -135,7 +174,12 @@ export const ConfigurePositionModal = ({
             Cancel
           </Button>
 
-          <Button onClick={handleSubmitConfigure} rounded="lg" variant="primary" disabled={isSubmitting}>
+          <Button
+            onClick={handleSubmitConfigure}
+            rounded="lg"
+            variant="primary"
+            disabled={isSubmitting || !isStrategyValid || !hasEnoughNative}
+          >
             {isSubmitting ? "Configuring..." : "Confirm"}
           </Button>
         </>
@@ -194,7 +238,7 @@ export const ConfigurePositionModal = ({
               setStrategyId={setStrategyId}
               isChecked={strategyId === StrategyId.Asset0ToAave}
               description={STRATEGY_LABELS_TO_DESCRIPTION[StrategyId.Asset0ToAave]}
-              label="Asset 0 to Aave"
+              label={`Asset 0 (${baseCurrency?.symbol ? baseCurrency.symbol : ""}) to Aave`}
               strategyId={StrategyId.Asset0ToAave}
             />
 
@@ -202,27 +246,18 @@ export const ConfigurePositionModal = ({
               setStrategyId={setStrategyId}
               isChecked={strategyId === StrategyId.Asset1ToAave}
               description={STRATEGY_LABELS_TO_DESCRIPTION[StrategyId.Asset1ToAave]}
-              label="Asset 1 to Aave"
+              label={`Asset 1 (${quoteCurrency?.symbol ? quoteCurrency.symbol : ""}) to Aave`}
               strategyId={StrategyId.Asset1ToAave}
             />
 
-            {/* <label
-              className={`flex items-start gap-3 rounded-xl border p-3 cursor-pointer ${
-                strategyId === StrategyId.None ? "border-gray-900 bg-gray-50" : "border-gray-200 hover:border-gray-300"
-              }`}
-            >
-              <input
-                type="radio"
-                name="strategy"
-                className="mt-1"
-                checked={strategyId === StrategyId.None}
-                onChange={() => setStrategyId(StrategyId.None)}
-              />
-              <div>
-                <div className="text-sm font-medium text-gray-900">No strategy</div>
-                <div className="text-xs text-gray-500">{STRATEGY_LABELS_TO_DESCRIPTION[StrategyId.None]}</div>
-              </div>
-            </label> */}
+            <StrategyInputWithLabel
+              setStrategyId={setStrategyId}
+              isChecked={false}
+              description={`Reopen the position with a new range when the price of Asset 1 is above the price threshold`}
+              label={`Rebalance`}
+              strategyId={StrategyId.None}
+              isDisabled
+            />
           </div>
         </div>
 
@@ -236,42 +271,31 @@ export const ConfigurePositionModal = ({
           <span className="font-medium">Summary: </span>
           <span>{description}</span>
         </div>
+
+        {isStrategyValid && (
+          <>
+            <div className="flex items-center justify-between rounded-lg bg-gray-50 p-3 text-sm text-gray-700">
+              <span className="font-medium">Service fee</span>
+              <span title={`${feeEth} ETH`} className={!hasEnoughNative ? "text-red-600 font-medium" : ""}>
+                {feeEth.toLocaleString(undefined, { maximumFractionDigits: 6 })} ETH
+              </span>
+            </div>
+
+            {!hasEnoughNative && (
+              <div className="rounded-lg bg-red-50 p-3 text-sm text-red-700">
+                Not enough native balance to pay the service fee.
+              </div>
+            )}
+          </>
+        )}
+
+        {!isStrategyValid && (
+          <div className="rounded-lg bg-yellow-50 p-3 text-sm text-gray-700">
+            <span className="font-medium">Warning: </span>
+            <span>The selected strategy is not valid for this pool. Please select a different strategy.</span>
+          </div>
+        )}
       </div>
     </Modal>
-  );
-};
-
-interface StrategyInputWithLabelProps {
-  isChecked: boolean;
-  setStrategyId: (id: number) => void;
-  description: string;
-  label: string;
-  strategyId: number;
-}
-const StrategyInputWithLabel = ({
-  isChecked,
-  setStrategyId,
-  description,
-  label,
-  strategyId,
-}: StrategyInputWithLabelProps) => {
-  return (
-    <label
-      className={`flex items-start gap-3 rounded-xl border p-3 cursor-pointer ${
-        isChecked ? "border-gray-900 bg-gray-50" : "border-gray-200 hover:border-gray-300"
-      }`}
-    >
-      <input
-        type="radio"
-        name="strategy"
-        className="mt-1"
-        checked={isChecked}
-        onChange={() => setStrategyId(strategyId)}
-      />
-      <div>
-        <div className="text-sm font-medium text-gray-900">{label}</div>
-        <div className="text-xs text-gray-500">{description}</div>
-      </div>
-    </label>
   );
 };

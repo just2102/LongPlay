@@ -27,6 +27,7 @@ contract RangeExitManagerService is ECDSAServiceManagerBase, IRangeExitServiceMa
     mapping(uint256 => bool) public isPositionManaged;
     mapping(uint256 => UserConfig) public userConfigs;
     mapping(uint256 => bool) public isPositionWithdrawn;
+    mapping(uint256 => bool) public isPositionSupplied;
 
     uint128 public latestTaskNum;
     uint256 public SERVICE_FEE;
@@ -127,11 +128,7 @@ contract RangeExitManagerService is ECDSAServiceManagerBase, IRangeExitServiceMa
         return config;
     }
 
-    function isStrategyValid(StrategyId strategyId, address currency0, address currency1)
-        internal
-        view
-        returns (bool)
-    {
+    function isStrategyValid(StrategyId strategyId, address currency0, address currency1) public view returns (bool) {
         if (strategyId == StrategyId.Asset0ToAave) {
             return isCurrencySuppliableAave(currency0);
         } else if (strategyId == StrategyId.None) {
@@ -322,6 +319,7 @@ contract RangeExitManagerService is ECDSAServiceManagerBase, IRangeExitServiceMa
             t0.safeApprove(address(AAVE_POOL), r0);
             try AAVE_POOL.supply(currency0, r0, owner, 0) {
                 emit SupplySuccess(currency0, r0, owner);
+                isPositionSupplied[userConfig.positionId] = true;
             } catch {
                 emit SupplyFailed(currency0, r0, owner);
             }
@@ -330,6 +328,7 @@ contract RangeExitManagerService is ECDSAServiceManagerBase, IRangeExitServiceMa
             t1.safeApprove(address(AAVE_POOL), r1);
             try AAVE_POOL.supply(currency1, r1, owner, 0) {
                 emit SupplySuccess(currency1, r1, owner);
+                isPositionSupplied[userConfig.positionId] = true;
             } catch {
                 emit SupplyFailed(currency1, r1, owner);
             }

@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import { useChainId } from "./useChainId";
 import { usePoolData } from "./usePoolData";
+import { useQuery } from "@tanstack/react-query";
 import { Token } from "@uniswap/sdk-core";
 import { nearestUsableTick } from "@uniswap/v3-sdk";
 import { MintOptions, Pool, V4PositionManager } from "@uniswap/v4-sdk";
@@ -46,15 +47,61 @@ export const useMintPosition = () => {
 
   const [isSendingTx, setIsSendingTx] = useState(false);
 
-  const token0 = new Token(chainId, MOCK_CURRENCY0, 6);
-  const token1 = new Token(chainId, MOCK_CURRENCY1, 6);
+  // const token1 = new Token(chainId, MOCK_CURRENCY1, 6);
 
   const { sqrtPriceX96Current, currentLiquidity, currentTick, isLoading } = usePoolData();
 
   const hookAddress = getContractsData(chainId).LPRebalanceHook.address;
 
+  const { data: token0 } = useQuery({
+    queryKey: ["token0"],
+    queryFn: async () => {
+      const token0Decimals = await readContract(wagmiConfig, {
+        address: MOCK_CURRENCY0,
+        abi: erc20Abi,
+        functionName: "decimals",
+      });
+
+      const token0Symbol = await readContract(wagmiConfig, {
+        address: MOCK_CURRENCY0,
+        abi: erc20Abi,
+        functionName: "symbol",
+      });
+
+      return new Token(chainId, MOCK_CURRENCY0, token0Decimals, token0Symbol);
+    },
+    refetchOnMount: false,
+    initialData: new Token(chainId, MOCK_CURRENCY0, 6, "USDC"),
+  });
+
+  const { data: token1 } = useQuery({
+    queryKey: ["token1"],
+    queryFn: async () => {
+      const token1Decimals = await readContract(wagmiConfig, {
+        address: MOCK_CURRENCY1,
+        abi: erc20Abi,
+        functionName: "decimals",
+      });
+
+      const token1Symbol = await readContract(wagmiConfig, {
+        address: MOCK_CURRENCY1,
+        abi: erc20Abi,
+        functionName: "symbol",
+      });
+
+      return new Token(chainId, MOCK_CURRENCY1, token1Decimals, token1Symbol);
+    },
+    refetchOnMount: false,
+    initialData: new Token(chainId, MOCK_CURRENCY1, 6, "USDC"),
+  });
+
   const pool = useMemo(() => {
-    const hasValues = sqrtPriceX96Current !== undefined && currentLiquidity !== undefined && currentTick !== undefined;
+    const hasValues =
+      sqrtPriceX96Current !== undefined &&
+      currentLiquidity !== undefined &&
+      currentTick !== undefined &&
+      token0 !== undefined &&
+      token1 !== undefined;
     if (!hasValues) return null;
 
     return new Pool(
@@ -67,7 +114,7 @@ export const useMintPosition = () => {
       currentLiquidity!.toString(),
       currentTick!,
     );
-  }, [token0?.address, token1?.address, hookAddress, sqrtPriceX96Current, currentLiquidity, currentTick]);
+  }, [token0, token1, hookAddress, sqrtPriceX96Current, currentLiquidity, currentTick]);
 
   const getMintPreview = ({
     fullRange,
