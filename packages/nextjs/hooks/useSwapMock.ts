@@ -14,10 +14,13 @@ const getSwapConfig = (pool: Pool, amountReadable: string, zeroForOne: boolean) 
     return null;
   }
 
+  const tokenToUse = zeroForOne ? pool.token0 : pool.token1;
+  const decimals = tokenToUse.decimals ?? 18;
+
   return {
     poolKey: pool.poolKey,
     zeroForOne,
-    amountIn: parseUnits(amountReadable, pool?.token0.decimals).toString(),
+    amountIn: parseUnits(amountReadable, decimals).toString(),
     amountOutMinimum: "0",
     hookData: "0x00",
   };

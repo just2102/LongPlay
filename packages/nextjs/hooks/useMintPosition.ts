@@ -69,7 +69,7 @@ export const useMintPosition = () => {
       return new Token(chainId, MOCK_CURRENCY0, token0Decimals, token0Symbol);
     },
     refetchOnMount: false,
-    initialData: new Token(chainId, MOCK_CURRENCY0, 6, "USDC"),
+    initialData: new Token(chainId, MOCK_CURRENCY0, 18, "TKNA"),
   });
 
   const { data: token1 } = useQuery({
@@ -90,7 +90,7 @@ export const useMintPosition = () => {
       return new Token(chainId, MOCK_CURRENCY1, token1Decimals, token1Symbol);
     },
     refetchOnMount: false,
-    initialData: new Token(chainId, MOCK_CURRENCY1, 6, "USDC"),
+    initialData: new Token(chainId, MOCK_CURRENCY1, 18, "LINK"),
   });
 
   const pool = useMemo(() => {
