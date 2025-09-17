@@ -21,8 +21,9 @@ import {LPRebalanceHook} from "../src/LPRebalanceHook.sol";
 import {MockERC20} from "solmate/src/test/utils/mocks/MockERC20.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
-import {MockV4Router} from "v4-periphery/test/mocks/MockV4Router.sol";
 import {IV4Router} from "v4-periphery/src/interfaces/IV4Router.sol";
+import {TickMath} from "@uniswap/v4-core/src/libraries/TickMath.sol";
+import {LiquidityAmounts} from "v4-periphery/src/libraries/LiquidityAmounts.sol";
 
 import "forge-std/console.sol";
 
@@ -51,11 +52,12 @@ contract SepoliaDeploySetup is Script, StdCheats {
         posmAddr = vm.envOr({name: "POSITION_MANAGER", defaultValue: address(0)});
         require(posmAddr != address(0), "Set POSITION_MANAGER env var");
 
-        address usdcAddr = vm.envOr({name: "USDC_ADDRESS", defaultValue: address(0)});
-        require(usdcAddr != address(0), "Set USDC_ADDRESS env var");
+        // we use LINK here because Aave on Sepolia allows supplying LINK
+        address linkAddr = vm.envOr({name: "LINK_ADDRESS", defaultValue: address(0)});
+        require(linkAddr != address(0), "Set LINK_ADDRESS env var");
 
-        uint256 usdcBalance = IERC20(usdcAddr).balanceOf(USER);
-        require(usdcBalance > 0, "USER does not have USDC, please fund with Aave faucet");
+        uint256 linkBalance = IERC20(linkAddr).balanceOf(USER);
+        require(linkBalance > 0, "USER does not have LINK, please fund with Aave faucet");
 
         uint160 flags = uint160(Hooks.AFTER_ADD_LIQUIDITY_FLAG | Hooks.AFTER_SWAP_FLAG | Hooks.AFTER_INITIALIZE_FLAG);
         bytes memory constructorArgs = abi.encode(IPoolManager(poolManagerAddr), USER);
@@ -67,9 +69,9 @@ contract SepoliaDeploySetup is Script, StdCheats {
         hook = new LPRebalanceHook{salt: salt}(IPoolManager(poolManagerAddr), USER);
         require(address(hook) == expectedHookAddress, "Hook address mismatch");
 
-        (MockERC20 tokenA, IERC20 usdc) = deployAndPrepareTokenAndUSDC(usdcAddr);
+        (MockERC20 tokenA, IERC20 link) = deployAndPrepareTokenAndLINK(linkAddr);
 
-        initCurrencies(tokenA, usdc);
+        initCurrencies(tokenA, link);
 
         deployPool();
 
@@ -80,7 +82,7 @@ contract SepoliaDeploySetup is Script, StdCheats {
         PoolId poolId = key.toId();
         console2.log("Hook:", address(hook));
         console2.log("TokenA:", address(tokenA));
-        console2.log("USDC:", address(usdc));
+        console2.log("LINK:", address(link));
         console2.log("Currency0:", Currency.unwrap(key.currency0));
         console2.log("Currency1:", Currency.unwrap(key.currency1));
         console2.log("Pool Id:");
@@ -120,30 +122,28 @@ contract SepoliaDeploySetup is Script, StdCheats {
     }
 
     // @notice Deploy a token and prepare USDC balances + approvals
-    function deployAndPrepareTokenAndUSDC(address usdcAddr) internal returns (MockERC20 tokenA, IERC20 usdc) {
-        console.log("Deploying TokenA and preparing USDC balances + approvals");
+    function deployAndPrepareTokenAndLINK(address linkAddr) internal returns (MockERC20 tokenA, IERC20 link) {
         address permit2 = vm.envOr({name: "PERMIT2", defaultValue: DEFAULT_PERMIT2});
 
-        tokenA = new MockERC20("TokenA", "TKNA", 6);
-        usdc = IERC20(usdcAddr);
-
-        tokenA.mint(USER, 1_000 ether);
+        tokenA = new MockERC20("TokenA", "TKNA", 18);
+        tokenA.mint(USER, 1_000_000 ether);
+        link = IERC20(linkAddr);
 
         // Approvals to Permit2 and sub-approve POSM
         tokenA.approve(permit2, type(uint256).max);
         IAllowanceTransfer(permit2).approve(address(tokenA), posmAddr, type(uint160).max, type(uint48).max);
 
-        usdc.approve(permit2, type(uint256).max);
-        IAllowanceTransfer(permit2).approve(address(usdc), posmAddr, type(uint160).max, type(uint48).max);
+        link.approve(permit2, type(uint256).max);
+        IAllowanceTransfer(permit2).approve(address(link), posmAddr, type(uint160).max, type(uint48).max);
 
-        console.log("TokenA deployed, USDC prepared and approved");
-        return (tokenA, usdc);
+        console.log("TokenA and LINK prepared and approved");
+        return (tokenA, link);
     }
 
-    function initCurrencies(MockERC20 tokenA, IERC20 usdc) internal {
+    function initCurrencies(MockERC20 tokenA, IERC20 link) internal {
         console.log("Initializing currencies");
         c0 = Currency.wrap(address(tokenA));
-        c1 = Currency.wrap(address(usdc));
+        c1 = Currency.wrap(address(link));
         if (Currency.unwrap(c0) > Currency.unwrap(c1)) {
             (c0, c1) = (c1, c0);
         }
@@ -153,8 +153,7 @@ contract SepoliaDeploySetup is Script, StdCheats {
     function addPoolLiquidity() internal {
         console.log("Adding pool liquidity");
         IPositionManager posM = IPositionManager(posmAddr);
-        uint256 amount0 = 5_000_000_000;
-        uint256 amount1 = 5_000_000_000;
+
         bytes memory actions =
             abi.encodePacked(uint8(Actions.MINT_POSITION), uint8(Actions.CLOSE_CURRENCY), uint8(Actions.CLOSE_CURRENCY));
 
@@ -163,7 +162,7 @@ contract SepoliaDeploySetup is Script, StdCheats {
             key,
             int24(-60),
             int24(60),
-            uint256(amount0),
+            100_000 ether,
             uint128(type(uint128).max),
             uint128(type(uint128).max),
             msg.sender,
@@ -171,21 +170,7 @@ contract SepoliaDeploySetup is Script, StdCheats {
         );
         params[1] = abi.encode(key.currency0);
         params[2] = abi.encode(key.currency1);
-        posM.modifyLiquidities(abi.encode(actions, params), block.timestamp + 120 seconds);
-
-        params[0] = abi.encode(
-            key,
-            int24(-120),
-            int24(120),
-            uint256(amount1),
-            uint128(type(uint128).max),
-            uint128(type(uint128).max),
-            msg.sender,
-            bytes("")
-        );
-        params[1] = abi.encode(key.currency0);
-        params[2] = abi.encode(key.currency1);
-        posM.modifyLiquidities(abi.encode(actions, params), block.timestamp + 30 minutes);
+        posM.modifyLiquidities(abi.encode(actions, params), block.timestamp + 240 seconds);
         console.log("Pool liquidity added");
     }
 }

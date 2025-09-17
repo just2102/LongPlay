@@ -17,4 +17,4 @@ OR
 
 `forge script script/DeployEigenLayerCore.s.sol --broadcast --optimize --optimizer-runs 200 --via-ir --rpc-url ${RPC_URL} --private-key ${PRIVATE_KEY}`
 
-`forge script script/ServiceDeployer.s.sol --broadcast --optimize --optimizer-runs 200 --via-ir --rpc-url ${RPC_URL}`
+`forge script script/ServiceDeployer.s.sol --broadcast --optimize --optimizer-runs 200 --via-ir --rpc-url ${RPC_URL} --private-key ${PRIVATE_KEY}`
