@@ -23,6 +23,10 @@ export const Header = () => {
           About
         </Link>
 
+        <a href="https://gho.aave.com/" target="_blank" rel="noopener noreferrer" className="btn btn-ghost">
+          Faucet
+        </a>
+
         <a
           href="https://github.com/just2102/LongPlay"
           target="_blank"
