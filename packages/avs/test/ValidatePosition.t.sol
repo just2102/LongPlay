@@ -22,7 +22,7 @@ contract ValidatePosition is Test {
         address owner = vm.envAddress("OPERATOR_ADDRESS");
 
         IRangeExitServiceManager.UserConfig memory userConfig = IRangeExitServiceManager.UserConfig({
-            positionId: 60000,
+            positionId: 100,
             posM: address(positionManager),
             tickThreshold: 30,
             strategyId: uint8(IRangeExitServiceManager.StrategyId.Asset0ToAave),

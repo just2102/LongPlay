@@ -14,12 +14,10 @@ import {DataTypes} from "./libraries/AaveDataTypes.sol";
 
 import {ECDSAUpgradeable} from "@openzeppelin-upgrades/contracts/utils/cryptography/ECDSAUpgradeable.sol";
 import {IERC1271Upgradeable} from "@openzeppelin-upgrades/contracts/interfaces/IERC1271Upgradeable.sol";
-import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 contract RangeExitManagerService is ECDSAServiceManagerBase, IRangeExitServiceManager {
     using ECDSAUpgradeable for bytes32;
-    using SafeERC20 for IERC20;
 
     mapping(uint128 => bytes32) public allTaskHashes;
     mapping(address operator => mapping(bytes32 => bytes)) public allTaskResponses;
@@ -204,7 +202,7 @@ contract RangeExitManagerService is ECDSAServiceManagerBase, IRangeExitServiceMa
                     continue;
                 }
 
-                (uint256 b0Before, uint256 b1Before) = getBalancesBefore(currency0, currency1);
+                (uint256 b0Before, uint256 b1Before) = getBalancesOfTwoCurrencies(currency0, currency1);
                 // todo: add min amounts
                 uint128 amount0Min = 0;
                 uint128 amount1Min = 0;
@@ -224,23 +222,27 @@ contract RangeExitManagerService is ECDSAServiceManagerBase, IRangeExitServiceMa
         }
     }
 
-    function getBalancesBefore(address currency0, address currency1) internal view returns (uint256, uint256) {
-        uint256 b0Before;
-        uint256 b1Before;
+    function getBalancesOfTwoCurrencies(address currency0, address currency1)
+        internal
+        view
+        returns (uint256, uint256)
+    {
+        uint256 b0;
+        uint256 b1;
 
         if (currency0 == address(0)) {
-            b0Before = address(this).balance;
+            b0 = address(this).balance;
         } else {
-            b0Before = IERC20(currency0).balanceOf(address(this));
+            b0 = IERC20(currency0).balanceOf(address(this));
         }
 
         if (currency1 == address(0)) {
-            b1Before = address(this).balance;
+            b1 = address(this).balance;
         } else {
-            b1Before = IERC20(currency1).balanceOf(address(this));
+            b1 = IERC20(currency1).balanceOf(address(this));
         }
 
-        return (b0Before, b1Before);
+        return (b0, b1);
     }
 
     function validatePositionForWithdraw(UserConfig memory userConfig, IPositionManagerMinimal posM)
@@ -308,30 +310,32 @@ contract RangeExitManagerService is ECDSAServiceManagerBase, IRangeExitServiceMa
         uint256 b0Before,
         uint256 b1Before
     ) internal {
-        uint256 r0 = IERC20(currency0).balanceOf(address(this)) - b0Before;
-        uint256 r1 = IERC20(currency1).balanceOf(address(this)) - b1Before;
+        (uint256 b0Now, uint256 b1Now) = getBalancesOfTwoCurrencies(currency0, currency1);
+        uint256 r0 = b0Now - b0Before;
+        uint256 r1 = b1Now - b1Before;
+
         address owner = userConfig.owner;
         IERC20 t0 = IERC20(currency0);
         IERC20 t1 = IERC20(currency1);
 
         if (userConfig.strategyId == uint8(StrategyId.Asset0ToAave) && r0 > 0) {
-            t0.safeApprove(address(AAVE_POOL), r0);
+            t0.approve(address(AAVE_POOL), type(uint256).max);
             try AAVE_POOL.supply(currency0, r0, owner, 0) {
                 emit SupplySuccess(currency0, r0, owner);
                 isPositionSupplied[userConfig.positionId] = true;
             } catch {
                 emit SupplyFailed(currency0, r0, owner);
             }
-            if (r1 > 0) t1.safeTransfer(owner, r1);
+            if (r1 > 0) t1.transfer(owner, r1);
         } else if (userConfig.strategyId == uint8(StrategyId.Asset1ToAave) && r1 > 0) {
-            t1.safeApprove(address(AAVE_POOL), r1);
+            t1.approve(address(AAVE_POOL), type(uint256).max);
             try AAVE_POOL.supply(currency1, r1, owner, 0) {
                 emit SupplySuccess(currency1, r1, owner);
                 isPositionSupplied[userConfig.positionId] = true;
             } catch {
                 emit SupplyFailed(currency1, r1, owner);
             }
-            if (r0 > 0) t0.safeTransfer(owner, r0);
+            if (r0 > 0) t0.transfer(owner, r0);
         } else {
             return sendTokensToOwner(r0, r1, t0, t1, owner);
         }
@@ -339,12 +343,18 @@ contract RangeExitManagerService is ECDSAServiceManagerBase, IRangeExitServiceMa
 
     function isCurrencySuppliableAave(address currency) public view returns (bool) {
         DataTypes.ReserveConfigurationMap memory reserveConfig = AAVE_POOL.getConfiguration(currency);
+
+        bool active = ((reserveConfig.data >> 56) & 1) == 1;
+        bool frozen = ((reserveConfig.data >> 57) & 1) == 1;
+        bool paused = ((reserveConfig.data >> 60) & 1) == 1;
+        if (!active || frozen || paused) return false;
+
         return reserveConfig.data != 0;
     }
 
     function sendTokensToOwner(uint256 r0, uint256 r1, IERC20 t0, IERC20 t1, address owner) internal {
-        if (r0 > 0) t0.safeTransfer(owner, r0);
-        if (r1 > 0) t1.safeTransfer(owner, r1);
+        if (r0 > 0) t0.transfer(owner, r0);
+        if (r1 > 0) t1.transfer(owner, r1);
     }
 
     function slashOperator(Task calldata task, uint32 taskIndex, address operator) external {

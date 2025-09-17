@@ -7,34 +7,33 @@ import {RangeExitManagerService} from "../src/RangeExitManagerService.sol";
 import {IPositionManagerMinimal} from "../src/interfaces/IPositionManagerMinimal.sol";
 import {IRangeExitServiceManager} from "../src/interfaces/IRangeExitServiceManager.sol";
 import {ILPRebalanceHook} from "../src/interfaces/ILPRebalanceHook.sol";
+import {IPool} from "../src/interfaces/IAavePool.sol";
+import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import {SafeERC20} from "openzeppelin-contracts/contracts/token/ERC20/utils/SafeERC20.sol";
+import {DataTypes} from "../src/libraries/AaveDataTypes.sol";
 
 contract AaveTest is Test {
-    RangeExitManagerService public rangeExitManagerService;
+    using SafeERC20 for IERC20;
+
+    RangeExitManagerService public avs;
     IPositionManagerMinimal public positionManager;
+    IPool public AAVE_POOL;
 
     function setUp() public {
         address serviceAddress = vm.envAddress("SERVICE_ADDRESS");
-        rangeExitManagerService = RangeExitManagerService(serviceAddress);
+        avs = RangeExitManagerService(serviceAddress);
+        AAVE_POOL = IPool(vm.envAddress("AAVE_POOL_ADDRESS"));
     }
 
     function test_isCurrencySuppliableAave() public view {
-        bool isSuppliable =
-            rangeExitManagerService.isCurrencySuppliableAave(address(0x0000000000000000000000000000000000000000));
+        bool isSuppliable = avs.isCurrencySuppliableAave(address(0x0000000000000000000000000000000000000000));
         assert(!isSuppliable);
 
         // WIF
-        isSuppliable =
-            rangeExitManagerService.isCurrencySuppliableAave(address(0x886c869cDc619214138C87f1DB0ADa522b16Dfa3));
+        isSuppliable = avs.isCurrencySuppliableAave(address(0x886c869cDc619214138C87f1DB0ADa522b16Dfa3));
         assert(!isSuppliable);
 
-        // WETH
-        isSuppliable =
-            rangeExitManagerService.isCurrencySuppliableAave(address(0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2));
-        assert(isSuppliable);
-
-        // USDC
-        isSuppliable =
-            rangeExitManagerService.isCurrencySuppliableAave(address(0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48));
+        isSuppliable = avs.isCurrencySuppliableAave(address(0xf8Fb3713D459D7C1018BD0A49D19b4C44290EBE5));
         assert(isSuppliable);
     }
 }

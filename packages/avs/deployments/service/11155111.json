@@ -1,12 +1,12 @@
 {
-  "lastUpdate": { "timestamp": "1758129852", "block_number": "9223294" },
+  "lastUpdate": { "timestamp": "1758134280", "block_number": "9223632" },
   "addresses": {
-    "proxyAdmin": "0x8825c33913c8220c29cc24f6b563576a56b87dd3",
-    "service": "0x58f6e242cdb0a0c9fb0c347244667a5a2b9c4008",
-    "serviceImpl": "0x0372d667a21793b27129c7e5a6125a127a6bf86e",
-    "stakeRegistry": "0x31b1d4b29a8d9cf3ac335970bad8000f21fc1d59",
-    "stakeRegistryImpl": "0x65d430e7ec12bad2e28010fb09ba7af22b30f738",
-    "strategy": "0x431ce9d0755e43675b489a5b69f2f17babaa0e5b",
-    "token": "0x97bbe13a621440aa42eb210e9239104e86af5efc"
+    "proxyAdmin": "0x4636bbba28cc936f4304a5560e94f57215173deb",
+    "service": "0x9993c6ec14e5ed8fc63e9285d7ffc846a2fd95c4",
+    "serviceImpl": "0xf8f7680f3a8cc3b0786e600f35c4e777d0f78035",
+    "stakeRegistry": "0x02bfba14667f14f3f0eea3168387cd9fd172bed3",
+    "stakeRegistryImpl": "0xe70f88e09109a1c207bb34be409b1e179b888bd9",
+    "strategy": "0x4826de8202ed277d000370c72fb93d37e1e7c902",
+    "token": "0x8417d71d88746e6d808467a39c1bc416ec99cf70"
   }
 }

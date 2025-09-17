@@ -206,3 +206,4 @@ The UI then displays configuration details on each position card (strategy label
 2. Adding more strategies, such as Rebalancing or combining Aave Supply with reopening the position on a new price range to maximize earned fees.
 3. Improving off-chain data integrity and availability. One option would be to replace Redis with a decentralized storage solution. Another option would be to add a reliability layer to the operator responsible for the backup/restore and retry logic.
 4. Integrate a public API (e.g., a subgraph) to allow users to view their positions for quick access and monitoring/management.
+5. Ensure native ETH support for Aave strategies.
