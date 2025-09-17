@@ -1,5 +1,5 @@
 {
-  "name": "Scaffold-ETH 2 DApp",
-  "description": "A DApp built with Scaffold-ETH",
+  "name": "LongPlay",
+  "description": "LongPlay is a platform that automates your liquidity positions on Uniswap V4",
   "iconPath": "logo.svg"
 }

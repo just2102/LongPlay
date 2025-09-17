@@ -1,6 +1,7 @@
 "use client";
 
-import React, { useRef } from "react";
+import { useRef } from "react";
+import Link from "next/link";
 import { ConnectButton } from "@rainbow-me/rainbowkit";
 import { Bars3Icon } from "@heroicons/react/24/outline";
 import { useOutsideClick } from "~~/hooks/useOutsideClick";
@@ -13,6 +14,25 @@ export const Header = () => {
 
   return (
     <div className="sticky lg:static top-0 navbar bg-base-100 min-h-0 shrink-0 justify-between z-20 shadow-md shadow-secondary px-0 sm:px-2">
+      <div className="navbar-start pl-4">
+        <Link href="/" className="btn btn-ghost">
+          App
+        </Link>
+
+        <Link href="/about" className="btn btn-ghost">
+          About
+        </Link>
+
+        <a
+          href="https://github.com/just2102/LongPlay"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="btn btn-ghost"
+        >
+          GitHub
+        </a>
+      </div>
+
       <div className="navbar-end w-auto lg:w-full">
         <details className="dropdown" ref={burgerMenuRef}>
           <summary className="ml-1 btn btn-ghost lg:hidden hover:bg-transparent">
