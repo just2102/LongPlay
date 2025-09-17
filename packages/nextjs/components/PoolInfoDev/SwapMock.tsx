@@ -16,21 +16,21 @@ export const SwapMock = ({ service }: ISwapMockProps) => {
       <Button
         disabled={isDisabled || !service}
         onClick={async () => {
-          handleSwapAction({ zeroForOne: true, amountReadable: "10" });
+          handleSwapAction({ zeroForOne: true, amountReadable: "100" });
         }}
         className="w-fit"
       >
-        {!service ? buttonTextNoService : `(Exact In) 10 Token0 --> Token1`}
+        {!service ? buttonTextNoService : `(Exact In) 100 Token0 --> Token1`}
       </Button>
 
       <Button
         disabled={isDisabled || !service}
         onClick={() => {
-          handleSwapAction({ zeroForOne: false, amountReadable: "10" });
+          handleSwapAction({ zeroForOne: false, amountReadable: "100" });
         }}
         className="w-fit"
       >
-        {!service ? buttonTextNoService : `Token0 <-- 10 Token1 (Exact In)`}
+        {!service ? buttonTextNoService : `Token0 <-- 100 Token1 (Exact In)`}
       </Button>
     </div>
   );
