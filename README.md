@@ -4,7 +4,7 @@
 
 ![architecture](./architecture.png)
 
-This project connects a Uniswap v4 Hook with an EigenLayer-powered AVS (Actively Validated Service) to automate liquidity position management based on price movements. It consists of four main parts:
+This project connects a Uniswap v4 Hook with an EigenLayer-powered AVS (Autonomous Verifiable Service) to automate liquidity position management based on price movements. It consists of four main parts:
 
 - Uniswap v4 Hook: `packages/foundry/src/LPRebalanceHook.sol`
 - AVS Service Contract: `packages/avs/src/RangeExitManagerService.sol`
